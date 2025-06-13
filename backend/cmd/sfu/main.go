@@ -1,9 +1,17 @@
 package main
 
 import (
-	"fmt"
+	"log"
+	"vidcall/pkg/signaling"
 )
 
 func main() {
-	fmt.Println("Hello world from SFU Unit")
+	client, err := signaling.NewClient("ws://<host>:8080/ws")
+
+	if err != nil {
+		log.Fatalf("failed to connect to Signaling API: %v", err)
+	}
+
+	defer client.Close()
+
 }
