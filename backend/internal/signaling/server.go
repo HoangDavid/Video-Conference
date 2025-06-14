@@ -29,6 +29,6 @@ func WsHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		fmt.Println(msg)
+		fmt.Println(string(msg))
 	}
 }

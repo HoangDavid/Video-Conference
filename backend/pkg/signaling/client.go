@@ -2,7 +2,9 @@ package signaling
 
 import (
 	"fmt"
+	"log"
 	"net/url"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
@@ -41,4 +43,17 @@ func (c *Client) Listen(onMessage func(msg []byte)) {
 
 		onMessage(msg)
 	}
+}
+
+func (c *Client) SendEvery(payload []byte, interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	go func() {
+		defer ticker.Stop()
+		for range ticker.C {
+			if err := c.Conn.WriteMessage(websocket.TextMessage, payload); err != nil {
+				log.Println("periodic send error:", err)
+				return
+			}
+		}
+	}()
 }
