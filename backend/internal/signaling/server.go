@@ -7,7 +7,6 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-// upgrade http connections to Websocket connections
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		return true
@@ -18,8 +17,11 @@ func WsHandler(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 
 	if err != nil {
+		fmt.Println("Websocket upgrade failed: %w", err)
 		return
 	}
+
+	fmt.Println("Connected successfully!")
 
 	defer conn.Close()
 
