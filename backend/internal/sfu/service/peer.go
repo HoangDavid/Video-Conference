@@ -13,10 +13,6 @@ type Peer struct {
 	SDP     string
 }
 
-type PeerOffer struct {
-	SDP string
-}
-
 func NewPeer(sigAddr string, config webrtc.Configuration) *Peer {
 
 	peerConn, _ := webrtc.NewPeerConnection(config)
