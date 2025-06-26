@@ -1,9 +1,7 @@
 package main
 
-import (
-	transport "vidcall/internal/signaling/transport/ws"
-)
+import "vidcall/internal/signaling"
 
 func main() {
-	transport.Init()
+	signaling.Execute()
 }

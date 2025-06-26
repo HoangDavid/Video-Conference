@@ -48,6 +48,9 @@ func (r *Room) Join(member domain.Member) {
 }
 
 func (r *Room) Leave(member domain.Member) {
-	// TODO: if host leave
 	delete(r.Members, member.PeerID)
+
+	// TODO: broadcast to leave action
+	// TODO: if host leave
+
 }
