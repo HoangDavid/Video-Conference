@@ -12,6 +12,7 @@ func Execute() {
 
 	mux.HandleFunc("/ws", transport.WsHandler)
 	mux.HandleFunc("/start_room/{duration}", transport.HandleStartRoom)
+	mux.HandleFunc("/rooms/{room_id}/join", transport.HandleJoinRoom)
 
 	server := &http.Server{
 		Addr:    ":8080",

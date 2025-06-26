@@ -1,12 +1,15 @@
 package service
 
 import (
+	"context"
 	"time"
 
 	"vidcall/internal/signaling/domain"
+	"vidcall/internal/signaling/repo"
 	"vidcall/pkg/utils"
 
 	"github.com/gorilla/websocket"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type Room struct {
@@ -23,15 +26,25 @@ func NewMember(name string, role string, conn *websocket.Conn) *domain.Member {
 	}
 }
 
-func NewRoom(duration time.Duration) *domain.Room {
-	return &domain.Room{
-		RoomID:   utils.GenerateRoomID(),
+func NewRoom(ctx context.Context, db *mongo.Database, duration time.Duration) *domain.Room {
+
+	pin := utils.GeneratePin()
+	roomID := utils.GenerateRoomID()
+
+	room := domain.Room{
+		RoomID:   roomID,
 		HostID:   "",
 		Members:  make(map[string]domain.Member),
-		Pin:      utils.GeneratePin(),
+		Pin:      pin,
 		Date:     time.Now().UTC(),
 		Duration: duration,
 	}
+
+	// TODO: pinHashed :=
+
+	repo.CreateRoomDoc(ctx, db, room)
+
+	return &room
 }
 
 func (r *Room) Join(member domain.Member) {

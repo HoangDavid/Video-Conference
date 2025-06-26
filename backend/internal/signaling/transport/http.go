@@ -26,8 +26,12 @@ func HandleStartRoom(w http.ResponseWriter, r *http.Request) {
 
 }
 
-// room_id/join_room
+// /rooms/{room_id}/join?pin=######
 func HandleJoinRoom(w http.ResponseWriter, r *http.Request) {
+	r.PathValue("room_id")
+	r.URL.Query().Get("pin")
+
+	// TODO: search for roomID in DB and check pin
 
 }
 
