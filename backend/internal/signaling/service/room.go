@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"vidcall/internal/signaling/domain"
+	"vidcall/internal/signaling/infra/mongo"
+	"vidcall/internal/signaling/repo"
 	"vidcall/pkg/logger"
 	"vidcall/pkg/utils"
 )
@@ -15,22 +17,27 @@ type Room struct {
 
 func NewRoom(ctx context.Context, duration time.Duration) *domain.Room {
 
-	pin := utils.GeneratePin()
-	roomID := utils.GenerateRoomID()
+	pin := utils.GeneratePin(ctx)
+	roomID := utils.GenerateRoomID(ctx)
 
 	room := domain.Room{
 		RoomID:   roomID,
 		HostID:   "",
 		Members:  make(map[string]domain.Member),
-		Pin:      pin,
 		Date:     time.Now().UTC(),
 		Duration: duration,
 	}
 
 	log := logger.GetLog(ctx).With("layer", "service", "roomID", roomID)
 
-	// TODO: pinHashed :=
+	// Save room data
+	db := mongo.DB()
+	hash := utils.PinHash(ctx, pin)
+	room.Pin = hash
+	repo.CreateRoomDoc(ctx, db, room)
 	log.Info("new room created")
+
+	room.Pin = pin
 
 	return &room
 }

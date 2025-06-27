@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"vidcall/internal/signaling/infra/mongo"
 	"vidcall/internal/signaling/transport"
 	"vidcall/pkg/logger"
 )
@@ -11,6 +12,9 @@ import (
 func Execute() {
 
 	mux := http.NewServeMux()
+
+	// Connect to MongoDB
+	mongo.Init("mongodb://localhost:27017", "Meeting", 10)
 
 	// mux.HandleFunc("/ws", transport.WsHandler)
 	mux.HandleFunc("/start_room/{duration}", transport.HandleStartRoom)

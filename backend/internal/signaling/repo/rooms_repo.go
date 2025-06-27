@@ -2,81 +2,83 @@ package repo
 
 import (
 	"context"
-	"fmt"
 	"time"
 	"vidcall/internal/signaling/domain"
+	"vidcall/pkg/logger"
 
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type roomDoc struct {
-	ID       primitive.ObjectID
-	RoomID   string
-	HostID   string
-	Members  map[string]domain.Member
-	Pin      string // already hashed
-	Date     time.Time
-	Duration time.Duration
+	RoomID   string                   `bson:"_id"`
+	HostID   string                   `bson:"hostID"`
+	Members  map[string]domain.Member `bson:"members"`
+	Pin      string                   `bson:"pin"`
+	Date     time.Time                `bson:"date"`
+	Duration string                   `bson:"duration"`
 }
 
 // TODO: memberDoc maybe
 
-func toDoc(r domain.Room) roomDoc {
+func toRoomDoc(r domain.Room) roomDoc {
 	return roomDoc{
 		RoomID:   r.RoomID,
 		HostID:   r.HostID,
 		Members:  r.Members,
 		Pin:      r.Pin,
 		Date:     r.Date,
-		Duration: r.Duration,
+		Duration: r.Duration.String(),
 	}
 }
 
-func fromDoc(rd roomDoc) domain.Room {
+func fromRoomDoc(rd roomDoc) domain.Room {
+	dur, _ := time.ParseDuration(rd.Duration)
+
 	return domain.Room{
 		RoomID:   rd.RoomID,
 		HostID:   rd.HostID,
 		Members:  rd.Members,
 		Pin:      rd.Pin,
 		Date:     rd.Date,
-		Duration: rd.Duration,
+		Duration: dur,
 	}
 }
 
 func CreateRoomDoc(ctx context.Context, db *mongo.Database, room domain.Room) {
+	log := logger.GetLog(ctx).With("layer", "repo", "roomID", room.RoomID)
+
 	col := db.Collection("rooms")
 
-	// TODO: add the timeout time as constant
+	// TODO: do I need this???
 	opCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	// TODO: add error logging here
-	_, err := col.InsertOne(opCtx, toDoc(room))
-
+	_, err := col.InsertOne(opCtx, toRoomDoc(room))
 	if err != nil {
-		fmt.Println("MongoDB Room Creation Error \n\n %w", err)
+		log.Error("Unable to insert document")
+		// TODO: add cancel here
+		return
 	}
 }
 
 func GetRoomDoc(ctx context.Context, db *mongo.Database, roomID string) *domain.Room {
+	log := logger.GetLog(ctx).With("layer", "repo", "roomID", roomID)
+
 	col := db.Collection("rooms")
 
-	// TODO: add timeout as context
 	opCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 
 	var d roomDoc
-
 	err := col.FindOne(opCtx, bson.M{"RoomID": roomID}).Decode(d)
 
-	// TODO: Add error logging here
 	if err != nil {
-		fmt.Println("MongoDB Room Find Error \n\n %w", err)
+		log.Error("Unable to get document")
+		// TODO: add cancel here
 	}
 
-	room := fromDoc(d)
+	room := fromRoomDoc(d)
 
 	return &room
 }
