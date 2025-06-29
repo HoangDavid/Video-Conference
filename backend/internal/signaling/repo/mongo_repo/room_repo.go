@@ -1,4 +1,4 @@
-package repo
+package mongo_repo
 
 import (
 	"context"
@@ -84,7 +84,3 @@ func GetRoomDoc(ctx context.Context, db *mongo.Database, roomID string) *domain.
 }
 
 func RemoveRoomDoc(ctx context.Context, db *mongo.Database, roomID string) {}
-
-func AddMember(ctx context.Context, db *mongo.Database, roomID string) {}
-
-func RemoveMemeber(ctx context.Context, db *mongo.Database, peerID string) {}

@@ -22,7 +22,6 @@ func Init(dsn, dbName string, pool uint64) {
 
 		defer cancel()
 
-		// TODO: Log error here
 		client, err := mongodrv.Connect(ctx,
 			options.Client().
 				ApplyURI(dsn).
@@ -30,9 +29,10 @@ func Init(dsn, dbName string, pool uint64) {
 				SetMaxPoolSize(pool),
 		)
 
-		log := logger.GetLog(ctx).With("layer", "infra")
+		log := logger.GetLog(ctx).With("layer", "infra", "service", "mongodb")
 		if err != nil {
 			log.Error("Unable to connect to MongoDB")
+			return
 		}
 
 		db = client.Database(dbName)

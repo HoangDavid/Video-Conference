@@ -21,11 +21,9 @@ func HandleStartRoom(w http.ResponseWriter, r *http.Request) {
 	}
 
 	room := service.NewRoom(ctx, duration)
-	// TODO: database store room meta data
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(http.StatusCreated)
-
 	payload := RoomCreatedResponse(room)
 	err = json.NewEncoder(w).Encode(payload)
 
@@ -35,10 +33,25 @@ func HandleStartRoom(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// /rooms/{room_id}/join?pin=######
+// /rooms/{room_id}/join
 func HandleJoinRoom(w http.ResponseWriter, r *http.Request) {
-	r.PathValue("room_id")
-	r.URL.Query().Get("pin")
+	ctx := r.Context()
+	log := logger.GetLog(ctx).With("layer", "transport")
+
+	// room_id := r.PathValue("room_id")
+
+	var payload struct {
+		Name string
+		Pin  string
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20) // 1MiB
+	err := json.NewDecoder(r.Body).Decode(&payload)
+
+	if err != nil {
+		log.Error("Invalid Json")
+		return
+	}
 
 	// TODO: search for roomID in DB and check pin
 

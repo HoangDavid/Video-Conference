@@ -6,7 +6,7 @@ import (
 
 	"vidcall/internal/signaling/domain"
 	"vidcall/internal/signaling/infra/mongo"
-	"vidcall/internal/signaling/repo"
+	"vidcall/internal/signaling/repo/mongo_repo"
 	"vidcall/pkg/logger"
 	"vidcall/pkg/utils"
 )
@@ -31,10 +31,11 @@ func NewRoom(ctx context.Context, duration time.Duration) *domain.Room {
 	log := logger.GetLog(ctx).With("layer", "service", "roomID", roomID)
 
 	// Save room data
-	db := mongo.DB()
 	hash := utils.PinHash(ctx, pin)
 	room.Pin = hash
-	repo.CreateRoomDoc(ctx, db, room)
+
+	db := mongo.DB()
+	mongo_repo.CreateRoomDoc(ctx, db, room)
 	log.Info("new room created")
 
 	room.Pin = pin
@@ -42,9 +43,9 @@ func NewRoom(ctx context.Context, duration time.Duration) *domain.Room {
 	return &room
 }
 
-// func NewMember(name string, role string, conn *websocket.Conn) *domain.Member
+// func NewMember(name string, role string ) *domain.Member
 
-func (r *Room) Join(member domain.Member) {
+func JoinRoom(ctx context.Context, name string, room_id string) {
 
 	// TODO: broadcast to notify join action
 
