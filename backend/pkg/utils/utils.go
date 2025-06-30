@@ -3,50 +3,11 @@ package utils
 import (
 	"context"
 	"crypto/rand"
-	"fmt"
-	"math/big"
+	"encoding/hex"
 	"vidcall/pkg/logger"
 
 	gonanoid "github.com/matoous/go-nanoid"
-	"golang.org/x/crypto/bcrypt"
 )
-
-const (
-	pinDigits  = 6
-	bcryptCost = bcrypt.DefaultCost
-)
-
-// Generate Room Pin
-func GeneratePin(ctx context.Context) string {
-	log := logger.GetLog(ctx).With("layer", "utils")
-
-	max := big.NewInt(1)
-	max.Exp(big.NewInt(10), big.NewInt(pinDigits), nil)
-
-	n, err := rand.Int(rand.Reader, max)
-	if err != nil {
-		log.Error("Unable to generate pin")
-		// TODO: context cancel
-	}
-
-	return fmt.Sprintf("%0*d", pinDigits, n.Int64())
-}
-
-func PinHash(ctx context.Context, pin string) string {
-	log := logger.GetLog(ctx).With("layer", "utils")
-
-	hash, err := bcrypt.GenerateFromPassword([]byte(pin), bcryptCost)
-	if err != nil {
-		log.Error("Unable to hash pin")
-		// TODO: context cancel
-	}
-
-	return string(hash)
-}
-
-func VerifyPin(pin string, hash string) bool {
-	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(pin)) == nil
-}
 
 func GenerateRoomID(ctx context.Context) string {
 	log := logger.GetLog(ctx).With("layer", "utils")
@@ -57,7 +18,7 @@ func GenerateRoomID(ctx context.Context) string {
 	)
 
 	if err != nil {
-		log.Error("Unable to Generate RoomID")
+		log.Error("unable to generate roomid")
 		// TODO: context cancel
 	}
 
@@ -73,9 +34,21 @@ func GenerateMemeberID(ctx context.Context) string {
 	)
 
 	if err != nil {
-		log.Error("Unable to Generate MemberID")
+		log.Error("unable to generate memberid")
 		// TODO: context cancel
 	}
 
 	return id
+}
+
+func GenerateHostToken(ctx context.Context) string {
+	log := logger.GetLog(ctx).With("layer", "utils")
+
+	var b [32]byte
+	_, err := rand.Read(b[:])
+	if err != nil {
+		log.Error("unable to generate host token")
+	}
+
+	return hex.EncodeToString(b[:])
 }

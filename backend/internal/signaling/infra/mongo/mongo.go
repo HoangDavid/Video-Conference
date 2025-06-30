@@ -15,7 +15,7 @@ var (
 	db   *mongodrv.Database
 )
 
-func Init(dsn, dbName string, pool uint64) {
+func Init(dsn string, dbName string, pool uint64) {
 
 	once.Do(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

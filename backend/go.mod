@@ -3,7 +3,9 @@ module vidcall
 go 1.23.3
 
 require (
+	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/gorilla/websocket v1.5.3
+	github.com/joho/godotenv v1.5.1
 	github.com/matoous/go-nanoid v1.5.1
 	github.com/pion/webrtc/v3 v3.3.5
 	github.com/redis/go-redis/v9 v9.11.0

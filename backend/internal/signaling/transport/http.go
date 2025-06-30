@@ -35,25 +35,6 @@ func HandleStartRoom(w http.ResponseWriter, r *http.Request) {
 
 // /rooms/{room_id}/join
 func HandleJoinRoom(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	log := logger.GetLog(ctx).With("layer", "transport")
-
-	// room_id := r.PathValue("room_id")
-
-	var payload struct {
-		Name string
-		Pin  string
-	}
-
-	r.Body = http.MaxBytesReader(w, r.Body, 1<<20) // 1MiB
-	err := json.NewDecoder(r.Body).Decode(&payload)
-
-	if err != nil {
-		log.Error("Invalid Json")
-		return
-	}
-
-	// TODO: search for roomID in DB and check pin
 
 }
 

@@ -14,7 +14,7 @@ var (
 	client *goredis.Client
 )
 
-func Init(addr, password string, db int) {
+func Init(addr string, password string, db int) {
 	once.Do(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 

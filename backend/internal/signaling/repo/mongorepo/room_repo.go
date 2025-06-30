@@ -1,4 +1,4 @@
-package mongo_repo
+package mongorepo
 
 import (
 	"context"
@@ -11,21 +11,17 @@ import (
 )
 
 type roomDoc struct {
-	RoomID   string                   `bson:"_id"`
-	HostID   string                   `bson:"hostID"`
-	Members  map[string]domain.Member `bson:"members"`
-	Pin      string                   `bson:"pin"`
-	Date     time.Time                `bson:"date"`
-	Duration string                   `bson:"duration"`
+	RoomID   string    `bson:"roomID"`
+	HostID   string    `bson:"hostID"`
+	Pin      string    `bson:"pin"`
+	Date     time.Time `bson:"date"`
+	Duration string    `bson:"duration"`
 }
-
-// TODO: memberDoc maybe
 
 func toRoomDoc(r domain.Room) roomDoc {
 	return roomDoc{
 		RoomID:   r.RoomID,
 		HostID:   r.HostID,
-		Members:  r.Members,
 		Pin:      r.Pin,
 		Date:     r.Date,
 		Duration: r.Duration.String(),
@@ -38,7 +34,6 @@ func fromRoomDoc(rd roomDoc) domain.Room {
 	return domain.Room{
 		RoomID:   rd.RoomID,
 		HostID:   rd.HostID,
-		Members:  rd.Members,
 		Pin:      rd.Pin,
 		Date:     rd.Date,
 		Duration: dur,

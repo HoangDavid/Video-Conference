@@ -6,7 +6,8 @@ import (
 
 	"vidcall/internal/signaling/domain"
 	"vidcall/internal/signaling/infra/mongo"
-	"vidcall/internal/signaling/repo/mongo_repo"
+	"vidcall/internal/signaling/repo/mongorepo"
+	"vidcall/internal/signaling/security"
 	"vidcall/pkg/logger"
 	"vidcall/pkg/utils"
 )
@@ -17,12 +18,13 @@ type Room struct {
 
 func NewRoom(ctx context.Context, duration time.Duration) *domain.Room {
 
-	pin := utils.GeneratePin(ctx)
+	pin := security.GeneratePin(ctx)
 	roomID := utils.GenerateRoomID(ctx)
+	host_token := utils.GenerateHostToken(ctx)
 
 	room := domain.Room{
 		RoomID:   roomID,
-		HostID:   "",
+		HostID:   host_token,
 		Members:  make(map[string]domain.Member),
 		Date:     time.Now().UTC(),
 		Duration: duration,
@@ -31,11 +33,11 @@ func NewRoom(ctx context.Context, duration time.Duration) *domain.Room {
 	log := logger.GetLog(ctx).With("layer", "service", "roomID", roomID)
 
 	// Save room data
-	hash := utils.PinHash(ctx, pin)
+	hash := security.PinHash(ctx, pin)
 	room.Pin = hash
 
 	db := mongo.DB()
-	mongo_repo.CreateRoomDoc(ctx, db, room)
+	mongorepo.CreateRoomDoc(ctx, db, room)
 	log.Info("new room created")
 
 	room.Pin = pin
