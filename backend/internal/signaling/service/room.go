@@ -16,45 +16,44 @@ type Room struct {
 	*domain.Room
 }
 
-func NewRoom(ctx context.Context, duration time.Duration) *domain.Room {
+func NewRoom(ctx context.Context, duration time.Duration) (*domain.Room, string) {
+	log := logger.GetLog(ctx).With("layer", "service")
 
 	pin := security.GeneratePin(ctx)
-	roomID := utils.GenerateRoomID(ctx)
-	host_token := utils.GenerateHostToken(ctx)
+	roomID := utils.GenerateRoomID()
+	hostID := utils.GenerateHostID()
 
 	room := domain.Room{
 		RoomID:   roomID,
-		HostID:   host_token,
-		Members:  make(map[string]domain.Member),
+		HostID:   hostID,
+		Pin:      security.PinHash(ctx, pin),
 		Date:     time.Now().UTC(),
 		Duration: duration,
 	}
 
-	log := logger.GetLog(ctx).With("layer", "service", "roomID", roomID)
-
 	// Save room data
-	hash := security.PinHash(ctx, pin)
-	room.Pin = hash
-
 	db := mongo.DB()
 	mongorepo.CreateRoomDoc(ctx, db, room)
-	log.Info("new room created")
+
+	// Logging
+	log = log.With("roomID", roomID)
+
+	// Tokenize
+	issuer := security.IssuerFrom(ctx)
+	host_token, err := issuer.Issue(roomID, hostID, "host")
+
+	if err != nil {
+		log.Error("unable to tokenize")
+	}
+	log.Info("created new room")
 
 	room.Pin = pin
 
-	return &room
+	return &room, host_token
 }
-
-// func NewMember(name string, role string ) *domain.Member
 
 func JoinRoom(ctx context.Context, name string, room_id string) {
 
 	// TODO: broadcast to notify join action
-
-}
-
-func (r *Room) Leave(member domain.Member) {
-	// TODO: broadcast to leave action
-	// TODO: if host leave
 
 }

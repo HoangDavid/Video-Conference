@@ -17,7 +17,7 @@ const (
 
 // Generate Room Pin
 func GeneratePin(ctx context.Context) string {
-	log := logger.GetLog(ctx).With("layer", "utils")
+	log := logger.GetLog(ctx).With("layer", "security")
 
 	max := big.NewInt(1)
 	max.Exp(big.NewInt(10), big.NewInt(pinDigits), nil)
@@ -32,7 +32,7 @@ func GeneratePin(ctx context.Context) string {
 }
 
 func PinHash(ctx context.Context, pin string) string {
-	log := logger.GetLog(ctx).With("layer", "utils")
+	log := logger.GetLog(ctx).With("layer", "security")
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(pin), bcryptCost)
 	if err != nil {

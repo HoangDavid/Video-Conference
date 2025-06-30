@@ -51,8 +51,7 @@ func CreateRoomDoc(ctx context.Context, db *mongo.Database, room domain.Room) {
 
 	_, err := col.InsertOne(opCtx, toRoomDoc(room))
 	if err != nil {
-		log.Error("Unable to insert document")
-		// TODO: add cancel here
+		log.Warn("Unable to insert document")
 		return
 	}
 }
@@ -69,8 +68,8 @@ func GetRoomDoc(ctx context.Context, db *mongo.Database, roomID string) *domain.
 	err := col.FindOne(opCtx, bson.M{"RoomID": roomID}).Decode(d)
 
 	if err != nil {
-		log.Error("Unable to get document")
-		// TODO: add cancel here
+		log.Warn("Unable to find document")
+		return nil
 	}
 
 	room := fromRoomDoc(d)

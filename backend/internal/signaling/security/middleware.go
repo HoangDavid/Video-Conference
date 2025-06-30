@@ -8,12 +8,17 @@ import (
 
 type ctxKey struct{}
 
-func FromContext(ctx context.Context) *Claims {
+func ClaimsFrom(ctx context.Context) *Claims {
 	c, _ := ctx.Value(ctxKey{}).(*Claims)
 	return c
 }
 
-func MiddleWare(i *Issuer) func(http.HandlerFunc) http.HandlerFunc {
+func IssuerFrom(ctx context.Context) *Issuer {
+	i, _ := ctx.Value(ctxKey{}).(*Issuer)
+	return i
+}
+
+func RequireAuth(i *Issuer) func(http.HandlerFunc) http.HandlerFunc {
 	return func(next http.HandlerFunc) http.HandlerFunc {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			raw := extractToken(r)
@@ -32,6 +37,15 @@ func MiddleWare(i *Issuer) func(http.HandlerFunc) http.HandlerFunc {
 			next.ServeHTTP(w, r.WithContext(ctx))
 
 		})
+	}
+}
+
+func WithIssuer(i *Issuer) func(http.HandlerFunc) http.HandlerFunc {
+	return func(next http.HandlerFunc) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			ctx := context.WithValue(r.Context(), ctxKey{}, i)
+			next(w, r.WithContext(ctx))
+		}
 	}
 }
 

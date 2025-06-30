@@ -26,10 +26,13 @@ func Execute() {
 	redisx.Init(os.Getenv("REDIS_URI"), os.Getenv("REDIS_PASSWORD"), 0)
 
 	// mux.HandleFunc("/ws", transport.WsHandler)
-	mux.HandleFunc("GET /start_room/{duration}", transport.HandleStartRoom)
+	mux.HandleFunc("GET /rooms/new/{duration}", security.WithIssuer(issuer)(transport.HandleCreateRoom))
+	mux.HandleFunc("POST /rooms/{room_id}/auth", security.WithIssuer(issuer)(transport.HandleAuth))
 
 	// secured endpoints
-	mux.HandleFunc("POST /rooms/{room_id}/join", security.MiddleWare(issuer)(transport.HandleJoinRoom))
+	mux.HandleFunc("POST /rooms/{room_id}/start", security.RequireAuth(issuer)(transport.HandleStartRoom))
+	mux.HandleFunc("POST /rooms/{room_id}/join", security.RequireAuth(issuer)(transport.HandleJoinRoom))
+	mux.HandleFunc("POST /rooms/{room_id}/lobby", security.RequireAuth(issuer)(transport.HandleLobby))
 
 	port := os.Getenv("SIGNALING_PORT")
 	server := &http.Server{

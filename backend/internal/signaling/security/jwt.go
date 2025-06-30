@@ -23,13 +23,13 @@ func NewIssuer(secret string) *Issuer {
 	return &Issuer{secret: []byte(secret), ttl: exp}
 }
 
-func (i *Issuer) Issue(roomID string, peerID string, role string) (string, error) {
+func (i *Issuer) Issue(roomID string, memberID string, role string) (string, error) {
 	now := time.Now()
 	c := Claims{
 		RoomID: roomID,
 		Role:   role,
 		RegisteredClaims: jwt.RegisteredClaims{
-			Subject:   peerID,
+			Subject:   memberID,
 			IssuedAt:  jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(now.Add(i.ttl)),
 		},
