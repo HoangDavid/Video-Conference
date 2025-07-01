@@ -12,7 +12,7 @@ import (
 // /start_room/{duration}
 func HandleCreateRoom(w http.ResponseWriter, r *http.Request) {
 
-	type Resp struct {
+	type resp struct {
 		RoomID    string `json:"roomID"`
 		Pin       string `json:"pin"`
 		HostToken string `json:"hostToken"`
@@ -24,12 +24,18 @@ func HandleCreateRoom(w http.ResponseWriter, r *http.Request) {
 	duration, err := time.ParseDuration(r.PathValue("duration"))
 	if err != nil {
 		log.Warn("Unable to parse meeting duration")
+		utils.Error(w, http.StatusBadRequest, "invalid payload format")
+		return
 	}
 
-	room, host_token := service.NewRoom(ctx, duration)
+	room, host_token, err := service.NewRoom(ctx, duration)
+	if err != nil {
+		utils.Error(w, http.StatusInternalServerError, "internal error")
+		return
+	}
 
 	utils.Respond(w, http.StatusCreated,
-		Resp{
+		&resp{
 			RoomID:    room.RoomID,
 			Pin:       room.Pin,
 			HostToken: host_token,
@@ -49,9 +55,20 @@ func HandleAuth(w http.ResponseWriter, r *http.Request) {
 	err := utils.Decode(r, &req)
 	if err != nil {
 		log.Error("unable to decode request payload")
+		utils.Error(w, http.StatusBadRequest, "invalid payload format")
 	}
 
-	service.Auth(ctx, roomID, req.Pin)
+	token, err := service.Auth(ctx, roomID, req.Pin)
+	switch err {
+	case nil:
+		utils.Respond(w, http.StatusOK, map[string]string{"token": token})
+	case service.ErrBadPin:
+		utils.Error(w, http.StatusUnauthorized, "unathorized")
+	case service.ErrNotFound:
+		utils.Error(w, http.StatusNotFound, "room not found")
+	default:
+		utils.Error(w, http.StatusInternalServerError, "internal error")
+	}
 
 }
 

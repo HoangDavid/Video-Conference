@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"strings"
+	"vidcall/pkg/utils"
 )
 
 type ctxKey struct{}
@@ -23,13 +24,13 @@ func RequireAuth(i *Issuer) func(http.HandlerFunc) http.HandlerFunc {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			raw := extractToken(r)
 			if raw == "" {
-				http.Error(w, "missing token", http.StatusUnauthorized)
+				utils.Error(w, http.StatusUnauthorized, "unauthorized")
 				return
 			}
 
 			claims, err := i.Parse(raw)
 			if err != nil {
-				http.Error(w, "unauthorized: "+err.Error(), http.StatusUnauthorized)
+				utils.Error(w, http.StatusUnauthorized, "unathorized")
 				return
 			}
 

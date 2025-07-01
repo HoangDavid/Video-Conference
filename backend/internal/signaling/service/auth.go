@@ -2,37 +2,50 @@ package service
 
 import (
 	"context"
-	"vidcall/internal/signaling/infra/mongo"
+	"errors"
+	"vidcall/internal/signaling/infra/mongox"
 	"vidcall/internal/signaling/repo/mongorepo"
 	"vidcall/internal/signaling/security"
 	"vidcall/pkg/logger"
 	"vidcall/pkg/utils"
+
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
-func Auth(ctx context.Context, roomID string, pin string) string {
+var (
+	ErrNotFound = errors.New("room not found")
+	ErrBadPin   = errors.New("invalid pin")
+)
+
+func Auth(ctx context.Context, roomID string, pin string) (string, error) {
 	// TODO: cases handling
 	log := logger.GetLog(ctx).With("layer", "service")
 
 	memberID := utils.GenerateMemeberID()
 
-	db := mongo.DB()
-	room := mongorepo.GetRoomDoc(ctx, db, roomID)
-	if room == nil {
-		return ""
+	// Find valid room doc
+	db := mongox.DB()
+	room, err := mongorepo.GetRoomDoc(ctx, db, roomID)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return "", ErrNotFound
+		}
+		return "", err
 	}
 
-	if !security.VerifyPin(pin, room.Pin) {
-		//  TODO: Invalid Pin
-		return ""
+	// Verify Pin
+	if ok := security.VerifyPin(pin, room.Pin); !ok {
+		return "", ErrBadPin
 	}
 
+	// JWT Token
 	issuer := security.IssuerFrom(ctx)
 	member_token, err := issuer.Issue(roomID, memberID, "guest")
 	if err != nil {
 		log.Error("unable to tokenize")
-		return ""
+		return "", err
 	}
 
-	return member_token
+	return member_token, nil
 
 }

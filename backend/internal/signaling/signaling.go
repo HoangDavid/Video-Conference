@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"os"
 
-	"vidcall/internal/signaling/infra/mongo"
+	"vidcall/internal/signaling/infra/mongox"
 	"vidcall/internal/signaling/infra/redisx"
 	"vidcall/internal/signaling/security"
 	"vidcall/internal/signaling/transport"
@@ -22,7 +22,7 @@ func Execute() {
 	// TODO: add ENV soon
 
 	// Fire up infra: MongoDB and Redis
-	mongo.Init(os.Getenv("MONGODB_URI"), os.Getenv("DB_NAME"), 10)
+	mongox.Init(os.Getenv("MONGODB_URI"), os.Getenv("DB_NAME"), 10)
 	redisx.Init(os.Getenv("REDIS_URI"), os.Getenv("REDIS_PASSWORD"), 0)
 
 	// mux.HandleFunc("/ws", transport.WsHandler)

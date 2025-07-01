@@ -40,7 +40,7 @@ func fromRoomDoc(rd roomDoc) domain.Room {
 	}
 }
 
-func CreateRoomDoc(ctx context.Context, db *mongo.Database, room domain.Room) {
+func CreateRoomDoc(ctx context.Context, db *mongo.Database, room domain.Room) error {
 	log := logger.GetLog(ctx).With("layer", "repo", "roomID", room.RoomID)
 
 	col := db.Collection("rooms")
@@ -51,12 +51,14 @@ func CreateRoomDoc(ctx context.Context, db *mongo.Database, room domain.Room) {
 
 	_, err := col.InsertOne(opCtx, toRoomDoc(room))
 	if err != nil {
-		log.Warn("Unable to insert document")
-		return
+		log.Warn("unable to insert document")
+		return err
 	}
+
+	return nil
 }
 
-func GetRoomDoc(ctx context.Context, db *mongo.Database, roomID string) *domain.Room {
+func GetRoomDoc(ctx context.Context, db *mongo.Database, roomID string) (*domain.Room, error) {
 	log := logger.GetLog(ctx).With("layer", "repo", "roomID", roomID)
 
 	col := db.Collection("rooms")
@@ -65,16 +67,20 @@ func GetRoomDoc(ctx context.Context, db *mongo.Database, roomID string) *domain.
 	defer cancel()
 
 	var d roomDoc
-	err := col.FindOne(opCtx, bson.M{"RoomID": roomID}).Decode(d)
+	err := col.FindOne(opCtx, bson.M{"roomID": roomID}).Decode(&d)
 
-	if err != nil {
-		log.Warn("Unable to find document")
-		return nil
+	switch err {
+	case nil:
+		room := fromRoomDoc(d)
+		return &room, nil
+
+	case mongo.ErrNoDocuments:
+		return nil, err
+
+	default:
+		log.Error("network error")
+		return nil, err
 	}
-
-	room := fromRoomDoc(d)
-
-	return &room
 }
 
 func RemoveRoomDoc(ctx context.Context, db *mongo.Database, roomID string) {}
