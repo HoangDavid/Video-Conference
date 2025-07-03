@@ -1,7 +1,8 @@
 package signaling
 
 import (
-	"fmt"
+	"crypto/tls"
+	"log"
 	"net/http"
 	"os"
 
@@ -19,7 +20,13 @@ func Execute() {
 	issuer := security.NewIssuer(os.Getenv("JWT_SECRET"))
 
 	mux := http.NewServeMux()
-	// TODO: add ENV soon
+
+	// Load TLS cert and key
+	cert := os.Getenv("TLS_CERT")
+	key := os.Getenv("TLS_KEY")
+	if cert == "" || key == "" {
+		log.Fatalf("TLS_CERT or TLS_KEY are not set")
+	}
 
 	// Fire up infra: MongoDB and Redis
 	mongox.Init(os.Getenv("MONGODB_URI"), os.Getenv("DB_NAME"), 10)
@@ -38,13 +45,12 @@ func Execute() {
 	server := &http.Server{
 		Addr:    port,
 		Handler: logger.SlogMiddleware(mux), // Slog handle server logging
-
-		/*
-			TODO: add TLS config so to use wss:/ and https:/
-		*/
+		TLSConfig: &tls.Config{
+			MinVersion: tls.VersionTLS12,
+		},
 	}
 
-	fmt.Println("Server starting at port " + port)
-	server.ListenAndServe()
+	log.Println("Server starting at port " + port)
+	server.ListenAndServeTLS(cert, key)
 
 }

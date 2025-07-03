@@ -1,9 +1,9 @@
 package main
 
 import (
-	transport "vidcall/internal/sfu/transport/ws"
+	"vidcall/internal/sfu"
 )
 
 func main() {
-	transport.Init()
+	sfu.Execute()
 }

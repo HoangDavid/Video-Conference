@@ -44,6 +44,7 @@ func HandleCreateRoom(w http.ResponseWriter, r *http.Request) {
 
 // /rooms/{room_id}/auth
 func HandleAuth(w http.ResponseWriter, r *http.Request) {
+
 	var req struct {
 		Pin string `json:"pin"`
 	}

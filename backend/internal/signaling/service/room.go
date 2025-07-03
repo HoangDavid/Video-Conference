@@ -17,6 +17,7 @@ type Room struct {
 }
 
 func NewRoom(ctx context.Context, duration time.Duration) (*domain.Room, string, error) {
+
 	log := logger.GetLog(ctx).With("layer", "service")
 
 	pin := security.GeneratePin(ctx)
@@ -37,9 +38,6 @@ func NewRoom(ctx context.Context, duration time.Duration) (*domain.Room, string,
 		return nil, "", err
 	}
 
-	// Logging
-	log = log.With("roomID", roomID)
-
 	// Tokenize
 	issuer := security.IssuerFrom(ctx)
 	host_token, err := issuer.Issue(roomID, hostID, "host")
@@ -47,10 +45,16 @@ func NewRoom(ctx context.Context, duration time.Duration) (*domain.Room, string,
 		log.Error("unable to tokenize")
 		return nil, "", err
 	}
+
+	log = log.With("roomID", roomID)
 	log.Info("created new room")
 	room.Pin = pin
 
 	return &room, host_token, nil
+}
+
+func StartRoom(ctx context.Context, roomID string) {
+
 }
 
 func JoinRoom(ctx context.Context, name string, room_id string) {
