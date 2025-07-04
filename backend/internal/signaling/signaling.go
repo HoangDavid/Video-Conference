@@ -32,14 +32,12 @@ func Execute() {
 	mongox.Init(os.Getenv("MONGODB_URI"), os.Getenv("DB_NAME"), 10)
 	redisx.Init(os.Getenv("REDIS_URI"), os.Getenv("REDIS_PASSWORD"), 0)
 
-	// mux.HandleFunc("/ws", transport.WsHandler)
+	// create new room and auth
 	mux.HandleFunc("GET /rooms/new/{duration}", security.WithIssuer(issuer)(transport.HandleCreateRoom))
 	mux.HandleFunc("POST /rooms/{room_id}/auth", security.WithIssuer(issuer)(transport.HandleAuth))
 
 	// secured endpoints
-	mux.HandleFunc("POST /rooms/{room_id}/start", security.RequireAuth(issuer)(transport.HandleStartRoom))
-	mux.HandleFunc("POST /rooms/{room_id}/join", security.RequireAuth(issuer)(transport.HandleJoinRoom))
-	mux.HandleFunc("POST /rooms/{room_id}/lobby", security.RequireAuth(issuer)(transport.HandleLobby))
+	mux.HandleFunc("/ws", transport.HandleWS)
 
 	port := os.Getenv("SIGNALING_PORT")
 	server := &http.Server{

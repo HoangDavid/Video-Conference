@@ -3,29 +3,91 @@ package transport
 import (
 	"fmt"
 	"net/http"
+	"sync"
+	"time"
+	"vidcall/pkg/logger"
+	"vidcall/pkg/utils"
 
 	"github.com/gorilla/websocket"
 )
 
-var upgrader = websocket.Upgrader{
-	CheckOrigin: func(*http.Request) bool {
-		return true
-	},
+type Hub struct {
+	conns map[*websocket.Conn]struct{}
+	mu    sync.RWMutex
 }
 
-// Handling SDP, ICE exchanges
-func WsHandler(w http.ResponseWriter, r *http.Request) {
-	ws, _ := upgrader.Upgrade(w, r, nil)
+func (h *Hub) Add(c *websocket.Conn) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.conns[c] = struct{}{}
+}
 
-	// TODO: error handler here
-	defer ws.Close()
+func (h *Hub) Remove(c *websocket.Conn) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	delete(h.conns, c)
+}
+
+func (h *Hub) CloseOne(c *websocket.Conn, code int, reason string) {
+	// TODO: error handling
+	msg := websocket.FormatCloseMessage(websocket.CloseNormalClosure, reason)
+	_ = c.WriteControl(websocket.CloseMessage, msg, time.Now().Add(time.Second))
+	defer c.Close()
+	h.Remove(c)
+	fmt.Println("Close connection")
+
+}
+
+var (
+	upgrader = websocket.Upgrader{
+		CheckOrigin: func(r *http.Request) bool {
+			return true
+		},
+	}
+	hub = &Hub{
+		conns: make(map[*websocket.Conn]struct{}),
+	}
+)
+
+func HandleWS(w http.ResponseWriter, r *http.Request) {
+
+	type Signal struct {
+		Type string `json:"type"`
+		SDP  string `json:"sdp,omitempty"`
+		// add other fields (e.g. ICE) here
+	}
+
+	log := logger.GetLog(r.Context()).With("layer", "transport")
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Error("unable to upgrade to websocket")
+		utils.Error(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+
+	defer hub.CloseOne(conn, websocket.CloseNormalClosure, "")
 
 	for {
-		_, data, _ := ws.ReadMessage()
+		// Error handle here
+		var msg Signal
+		err := conn.ReadJSON(&msg)
 
-		// TODO: error handler here
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
 
-		fmt.Println("Recieved: %w", data)
+		fmt.Println(msg.SDP)
+
 	}
 
 }
+
+// TODO:
+/*
+- Opeinng handshake
+- Data transfer
+- Closing handshake: send and recieve close control frame
+- TCP connection terminated
+- ping/pong
+*/
