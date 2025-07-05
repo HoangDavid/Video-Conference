@@ -53,8 +53,7 @@ func HandleWS(w http.ResponseWriter, r *http.Request) {
 
 	type Signal struct {
 		Type string `json:"type"`
-		SDP  string `json:"sdp,omitempty"`
-		// add other fields (e.g. ICE) here
+		SDP  string `json:"sdp"`
 	}
 
 	log := logger.GetLog(r.Context()).With("layer", "transport")
@@ -67,9 +66,11 @@ func HandleWS(w http.ResponseWriter, r *http.Request) {
 
 	defer hub.CloseOne(conn, websocket.CloseNormalClosure, "")
 
+	var msg Signal
+
 	for {
 		// Error handle here
-		var msg Signal
+
 		err := conn.ReadJSON(&msg)
 
 		if err != nil {
@@ -77,7 +78,7 @@ func HandleWS(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		fmt.Println(msg.SDP)
+		fmt.Println(msg.SDP, msg.Type)
 
 	}
 

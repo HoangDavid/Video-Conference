@@ -13,9 +13,9 @@ import (
 func HandleCreateRoom(w http.ResponseWriter, r *http.Request) {
 
 	type resp struct {
-		RoomID    string `json:"roomID"`
-		Pin       string `json:"pin"`
-		HostToken string `json:"hostToken"`
+		RoomID string `json:"roomID"`
+		Pin    string `json:"pin"`
+		Token  string `json:"token"`
 	}
 
 	ctx := r.Context()
@@ -34,11 +34,20 @@ func HandleCreateRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	http.SetCookie(w, &http.Cookie{
+		Name:     "session_id",
+		Value:    host_token,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+	})
+
 	utils.Respond(w, http.StatusCreated,
 		&resp{
-			RoomID:    room.RoomID,
-			Pin:       room.Pin,
-			HostToken: host_token,
+			RoomID: room.RoomID,
+			Pin:    room.Pin,
+			Token:  host_token,
 		})
 }
 
@@ -62,6 +71,16 @@ func HandleAuth(w http.ResponseWriter, r *http.Request) {
 	token, err := service.Auth(ctx, roomID, req.Pin)
 	switch err {
 	case nil:
+
+		http.SetCookie(w, &http.Cookie{
+			Name:     "session_id",
+			Value:    token,
+			Path:     "/",
+			HttpOnly: true,
+			Secure:   true,
+			SameSite: http.SameSiteLaxMode,
+		})
+
 		utils.Respond(w, http.StatusOK, map[string]string{"token": token})
 	case service.ErrBadPin:
 		utils.Error(w, http.StatusUnauthorized, "unathorized")

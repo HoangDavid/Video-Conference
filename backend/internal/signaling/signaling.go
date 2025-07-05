@@ -37,7 +37,7 @@ func Execute() {
 	mux.HandleFunc("POST /rooms/{room_id}/auth", security.WithIssuer(issuer)(transport.HandleAuth))
 
 	// secured endpoints
-	mux.HandleFunc("/ws", transport.HandleWS)
+	mux.HandleFunc("GET /ws", security.RequireAuth(issuer)(transport.HandleWS))
 
 	port := os.Getenv("SIGNALING_PORT")
 	server := &http.Server{

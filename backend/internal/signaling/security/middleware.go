@@ -2,8 +2,8 @@ package security
 
 import (
 	"context"
+	"fmt"
 	"net/http"
-	"strings"
 	"vidcall/pkg/utils"
 )
 
@@ -22,17 +22,21 @@ func IssuerFrom(ctx context.Context) *Issuer {
 func RequireAuth(i *Issuer) func(http.HandlerFunc) http.HandlerFunc {
 	return func(next http.HandlerFunc) http.HandlerFunc {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			raw := extractToken(r)
-			if raw == "" {
+			cookie, err := r.Cookie("session_id")
+			if err != nil {
 				utils.Error(w, http.StatusUnauthorized, "unauthorized")
 				return
 			}
+
+			raw := cookie.Value
 
 			claims, err := i.Parse(raw)
 			if err != nil {
 				utils.Error(w, http.StatusUnauthorized, "unathorized")
 				return
 			}
+
+			fmt.Println(claims.Role)
 
 			ctx := context.WithValue(r.Context(), ctxKey{}, claims)
 			next.ServeHTTP(w, r.WithContext(ctx))
@@ -50,17 +54,17 @@ func WithIssuer(i *Issuer) func(http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-func extractToken(r *http.Request) string {
-	h := r.Header.Get("Authorization")
+// func extractToken(r *http.Request) string {
+// 	h := r.Header.Get("Authorization")
 
-	if strings.HasPrefix(h, "Bearer ") {
-		return strings.TrimPrefix(h, "Bearer ")
-	}
+// 	if strings.HasPrefix(h, "Bearer ") {
+// 		return strings.TrimPrefix(h, "Bearer ")
+// 	}
 
-	if q := r.URL.Query().Get("token"); q != "" {
-		return q
-	}
+// 	if q := r.URL.Query().Get("token"); q != "" {
+// 		return q
+// 	}
 
-	return ""
+// 	return ""
 
-}
+// }
