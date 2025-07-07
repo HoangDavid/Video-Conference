@@ -19,14 +19,14 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	SFU_Ping_FullMethodName = "/pb.SFU/Ping"
+	SFU_Signal_FullMethodName = "/SFU.SFU/Signal"
 )
 
 // SFUClient is the client API for SFU service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type SFUClient interface {
-	Ping(ctx context.Context, in *PingReq, opts ...grpc.CallOption) (*Pong, error)
+	Signal(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[PeerRequest, PeerResponse], error)
 }
 
 type sFUClient struct {
@@ -37,21 +37,24 @@ func NewSFUClient(cc grpc.ClientConnInterface) SFUClient {
 	return &sFUClient{cc}
 }
 
-func (c *sFUClient) Ping(ctx context.Context, in *PingReq, opts ...grpc.CallOption) (*Pong, error) {
+func (c *sFUClient) Signal(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[PeerRequest, PeerResponse], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(Pong)
-	err := c.cc.Invoke(ctx, SFU_Ping_FullMethodName, in, out, cOpts...)
+	stream, err := c.cc.NewStream(ctx, &SFU_ServiceDesc.Streams[0], SFU_Signal_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
-	return out, nil
+	x := &grpc.GenericClientStream[PeerRequest, PeerResponse]{ClientStream: stream}
+	return x, nil
 }
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type SFU_SignalClient = grpc.BidiStreamingClient[PeerRequest, PeerResponse]
 
 // SFUServer is the server API for SFU service.
 // All implementations must embed UnimplementedSFUServer
 // for forward compatibility.
 type SFUServer interface {
-	Ping(context.Context, *PingReq) (*Pong, error)
+	Signal(grpc.BidiStreamingServer[PeerRequest, PeerResponse]) error
 	mustEmbedUnimplementedSFUServer()
 }
 
@@ -62,8 +65,8 @@ type SFUServer interface {
 // pointer dereference when methods are called.
 type UnimplementedSFUServer struct{}
 
-func (UnimplementedSFUServer) Ping(context.Context, *PingReq) (*Pong, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Ping not implemented")
+func (UnimplementedSFUServer) Signal(grpc.BidiStreamingServer[PeerRequest, PeerResponse]) error {
+	return status.Errorf(codes.Unimplemented, "method Signal not implemented")
 }
 func (UnimplementedSFUServer) mustEmbedUnimplementedSFUServer() {}
 func (UnimplementedSFUServer) testEmbeddedByValue()             {}
@@ -86,36 +89,27 @@ func RegisterSFUServer(s grpc.ServiceRegistrar, srv SFUServer) {
 	s.RegisterService(&SFU_ServiceDesc, srv)
 }
 
-func _SFU_Ping_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(PingReq)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SFUServer).Ping(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: SFU_Ping_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SFUServer).Ping(ctx, req.(*PingReq))
-	}
-	return interceptor(ctx, in, info, handler)
+func _SFU_Signal_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(SFUServer).Signal(&grpc.GenericServerStream[PeerRequest, PeerResponse]{ServerStream: stream})
 }
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type SFU_SignalServer = grpc.BidiStreamingServer[PeerRequest, PeerResponse]
 
 // SFU_ServiceDesc is the grpc.ServiceDesc for SFU service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var SFU_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "pb.SFU",
+	ServiceName: "SFU.SFU",
 	HandlerType: (*SFUServer)(nil),
-	Methods: []grpc.MethodDesc{
+	Methods:     []grpc.MethodDesc{},
+	Streams: []grpc.StreamDesc{
 		{
-			MethodName: "Ping",
-			Handler:    _SFU_Ping_Handler,
+			StreamName:    "Signal",
+			Handler:       _SFU_Signal_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
 	Metadata: "api/proto/sfu.proto",
 }

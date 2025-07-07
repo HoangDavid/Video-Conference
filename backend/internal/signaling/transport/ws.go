@@ -5,8 +5,9 @@ import (
 	"net/http"
 	"sync"
 	"time"
+
+	sfu "vidcall/api/proto"
 	"vidcall/pkg/logger"
-	"vidcall/pkg/utils"
 
 	"github.com/gorilla/websocket"
 )
@@ -49,28 +50,36 @@ var (
 	}
 )
 
-func HandleWS(w http.ResponseWriter, r *http.Request) {
-
-	type Signal struct {
-		Type string `json:"type"`
-		SDP  string `json:"sdp"`
-	}
-
-	log := logger.GetLog(r.Context()).With("layer", "transport")
+func HandleWS(w http.ResponseWriter, r *http.Request, sfuCLient sfu.SFUClient) {
+	ctx := r.Context()
+	log := logger.GetLog(ctx).With("layer", "transport")
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Error("unable to upgrade to websocket")
-		utils.Error(w, http.StatusInternalServerError, "internal error")
 		return
 	}
 
+	// TODO: error handle
+	stream, _ := sfuCLient.Signal(ctx)
+
 	defer hub.CloseOne(conn, websocket.CloseNormalClosure, "")
 
-	var msg Signal
+	// TODO: ad channel to catch errors
+	go onSendSFU(conn, stream)
+	go onListenSFU(conn, stream)
 
+}
+
+type Signal struct {
+	Type string `json:"type"`
+	SDP  string `json:"sdp,omitempty"`
+	ICE  string `json:"ice,omitempty"`
+}
+
+func onSendSFU(conn *websocket.Conn, stream sfu.SFU_SignalClient) {
 	for {
-		// Error handle here
-
+		var msg Signal
+		// TODO: Error handle here
 		err := conn.ReadJSON(&msg)
 
 		if err != nil {
@@ -78,10 +87,53 @@ func HandleWS(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		fmt.Println(msg.SDP, msg.Type)
+		// TODO: error handle
+		switch msg.Type {
+		case "offer":
+			_ = stream.Send(&sfu.PeerRequest{
+				Payload: &sfu.PeerRequest_Offer{
+					Offer: &sfu.SDP{
+						Type: sfu.SdpType_OFFER,
+						Sdp:  msg.SDP,
+					},
+				},
+			})
 
+		case "ice":
+			_ = stream.Send(&sfu.PeerRequest{
+				Payload: &sfu.PeerRequest_Ice{
+					Ice: &sfu.IceCandidate{
+						Candidate: msg.ICE,
+					},
+				},
+			})
+
+		default:
+		}
 	}
 
+}
+
+func onListenSFU(conn *websocket.Conn, stream sfu.SFU_SignalClient) {
+
+	// TODO: error handling
+	for {
+		resp, _ := stream.Recv()
+
+		switch p := resp.Payload.(type) {
+		case *sfu.PeerResponse_Answer:
+			_ = conn.WriteJSON(Signal{
+				Type: "answer",
+				SDP:  p.Answer.Sdp,
+			})
+		case *sfu.PeerResponse_Ice:
+			_ = conn.WriteJSON(Signal{
+				Type: "ice",
+				SDP:  p.Ice.Candidate,
+			})
+		default:
+		}
+	}
 }
 
 // TODO:

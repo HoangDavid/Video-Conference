@@ -1,12 +1,40 @@
 syntax="proto3";
 
-package pb;
+package SFU;
 
 option go_package="api/proto/";
 
-service SFU {
-    rpc Ping (PingReq) returns (Pong);
+enum SdpType {
+    OFFER = 0;
+    ANSWER = 1;
 }
 
-message PingReq {string msg = 1; }
-message Pong    {string msg = 1; }
+// Session Description (SDP)
+message SDP {
+    SdpType type = 1;
+    string sdp = 2;
+}
+
+message IceCandidate {
+    string candidate = 1;
+}
+
+// TODO: mute A/V, join/leave, etc
+
+message PeerRequest {
+    oneof payload {
+        SDP offer = 1;
+        IceCandidate ice = 2;
+    }
+}
+
+message PeerResponse {
+    oneof payload {
+        SDP answer = 1;
+        IceCandidate ice = 2;
+    }
+}
+
+service SFU {
+    rpc Signal(stream PeerRequest) returns (stream PeerResponse);
+}

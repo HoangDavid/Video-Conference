@@ -21,71 +21,126 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type PingReq struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Msg           string                 `protobuf:"bytes,1,opt,name=msg,proto3" json:"msg,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
+type SdpType int32
 
-func (x *PingReq) Reset() {
-	*x = PingReq{}
-	mi := &file_api_proto_sfu_proto_msgTypes[0]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
+const (
+	SdpType_OFFER  SdpType = 0
+	SdpType_ANSWER SdpType = 1
+)
 
-func (x *PingReq) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*PingReq) ProtoMessage() {}
-
-func (x *PingReq) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_sfu_proto_msgTypes[0]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
+// Enum value maps for SdpType.
+var (
+	SdpType_name = map[int32]string{
+		0: "OFFER",
+		1: "ANSWER",
 	}
-	return mi.MessageOf(x)
+	SdpType_value = map[string]int32{
+		"OFFER":  0,
+		"ANSWER": 1,
+	}
+)
+
+func (x SdpType) Enum() *SdpType {
+	p := new(SdpType)
+	*p = x
+	return p
 }
 
-// Deprecated: Use PingReq.ProtoReflect.Descriptor instead.
-func (*PingReq) Descriptor() ([]byte, []int) {
+func (x SdpType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (SdpType) Descriptor() protoreflect.EnumDescriptor {
+	return file_api_proto_sfu_proto_enumTypes[0].Descriptor()
+}
+
+func (SdpType) Type() protoreflect.EnumType {
+	return &file_api_proto_sfu_proto_enumTypes[0]
+}
+
+func (x SdpType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use SdpType.Descriptor instead.
+func (SdpType) EnumDescriptor() ([]byte, []int) {
 	return file_api_proto_sfu_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *PingReq) GetMsg() string {
-	if x != nil {
-		return x.Msg
-	}
-	return ""
-}
-
-type Pong struct {
+// Session Description (SDP)
+type SDP struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Msg           string                 `protobuf:"bytes,1,opt,name=msg,proto3" json:"msg,omitempty"`
+	Type          SdpType                `protobuf:"varint,1,opt,name=type,proto3,enum=SFU.SdpType" json:"type,omitempty"`
+	Sdp           string                 `protobuf:"bytes,2,opt,name=sdp,proto3" json:"sdp,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *Pong) Reset() {
-	*x = Pong{}
+func (x *SDP) Reset() {
+	*x = SDP{}
+	mi := &file_api_proto_sfu_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SDP) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SDP) ProtoMessage() {}
+
+func (x *SDP) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_sfu_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SDP.ProtoReflect.Descriptor instead.
+func (*SDP) Descriptor() ([]byte, []int) {
+	return file_api_proto_sfu_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *SDP) GetType() SdpType {
+	if x != nil {
+		return x.Type
+	}
+	return SdpType_OFFER
+}
+
+func (x *SDP) GetSdp() string {
+	if x != nil {
+		return x.Sdp
+	}
+	return ""
+}
+
+type IceCandidate struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Candidate     string                 `protobuf:"bytes,1,opt,name=candidate,proto3" json:"candidate,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *IceCandidate) Reset() {
+	*x = IceCandidate{}
 	mi := &file_api_proto_sfu_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *Pong) String() string {
+func (x *IceCandidate) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*Pong) ProtoMessage() {}
+func (*IceCandidate) ProtoMessage() {}
 
-func (x *Pong) ProtoReflect() protoreflect.Message {
+func (x *IceCandidate) ProtoReflect() protoreflect.Message {
 	mi := &file_api_proto_sfu_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -97,29 +152,206 @@ func (x *Pong) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use Pong.ProtoReflect.Descriptor instead.
-func (*Pong) Descriptor() ([]byte, []int) {
+// Deprecated: Use IceCandidate.ProtoReflect.Descriptor instead.
+func (*IceCandidate) Descriptor() ([]byte, []int) {
 	return file_api_proto_sfu_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *Pong) GetMsg() string {
+func (x *IceCandidate) GetCandidate() string {
 	if x != nil {
-		return x.Msg
+		return x.Candidate
 	}
 	return ""
 }
+
+type PeerRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Payload:
+	//
+	//	*PeerRequest_Offer
+	//	*PeerRequest_Ice
+	Payload       isPeerRequest_Payload `protobuf_oneof:"payload"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PeerRequest) Reset() {
+	*x = PeerRequest{}
+	mi := &file_api_proto_sfu_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PeerRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PeerRequest) ProtoMessage() {}
+
+func (x *PeerRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_sfu_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PeerRequest.ProtoReflect.Descriptor instead.
+func (*PeerRequest) Descriptor() ([]byte, []int) {
+	return file_api_proto_sfu_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *PeerRequest) GetPayload() isPeerRequest_Payload {
+	if x != nil {
+		return x.Payload
+	}
+	return nil
+}
+
+func (x *PeerRequest) GetOffer() *SDP {
+	if x != nil {
+		if x, ok := x.Payload.(*PeerRequest_Offer); ok {
+			return x.Offer
+		}
+	}
+	return nil
+}
+
+func (x *PeerRequest) GetIce() *IceCandidate {
+	if x != nil {
+		if x, ok := x.Payload.(*PeerRequest_Ice); ok {
+			return x.Ice
+		}
+	}
+	return nil
+}
+
+type isPeerRequest_Payload interface {
+	isPeerRequest_Payload()
+}
+
+type PeerRequest_Offer struct {
+	Offer *SDP `protobuf:"bytes,1,opt,name=offer,proto3,oneof"`
+}
+
+type PeerRequest_Ice struct {
+	Ice *IceCandidate `protobuf:"bytes,2,opt,name=ice,proto3,oneof"`
+}
+
+func (*PeerRequest_Offer) isPeerRequest_Payload() {}
+
+func (*PeerRequest_Ice) isPeerRequest_Payload() {}
+
+type PeerResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Payload:
+	//
+	//	*PeerResponse_Answer
+	//	*PeerResponse_Ice
+	Payload       isPeerResponse_Payload `protobuf_oneof:"payload"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PeerResponse) Reset() {
+	*x = PeerResponse{}
+	mi := &file_api_proto_sfu_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PeerResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PeerResponse) ProtoMessage() {}
+
+func (x *PeerResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_sfu_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PeerResponse.ProtoReflect.Descriptor instead.
+func (*PeerResponse) Descriptor() ([]byte, []int) {
+	return file_api_proto_sfu_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *PeerResponse) GetPayload() isPeerResponse_Payload {
+	if x != nil {
+		return x.Payload
+	}
+	return nil
+}
+
+func (x *PeerResponse) GetAnswer() *SDP {
+	if x != nil {
+		if x, ok := x.Payload.(*PeerResponse_Answer); ok {
+			return x.Answer
+		}
+	}
+	return nil
+}
+
+func (x *PeerResponse) GetIce() *IceCandidate {
+	if x != nil {
+		if x, ok := x.Payload.(*PeerResponse_Ice); ok {
+			return x.Ice
+		}
+	}
+	return nil
+}
+
+type isPeerResponse_Payload interface {
+	isPeerResponse_Payload()
+}
+
+type PeerResponse_Answer struct {
+	Answer *SDP `protobuf:"bytes,1,opt,name=answer,proto3,oneof"`
+}
+
+type PeerResponse_Ice struct {
+	Ice *IceCandidate `protobuf:"bytes,2,opt,name=ice,proto3,oneof"`
+}
+
+func (*PeerResponse_Answer) isPeerResponse_Payload() {}
+
+func (*PeerResponse_Ice) isPeerResponse_Payload() {}
 
 var File_api_proto_sfu_proto protoreflect.FileDescriptor
 
 const file_api_proto_sfu_proto_rawDesc = "" +
 	"\n" +
-	"\x13api/proto/sfu.proto\x12\x02pb\"\x1b\n" +
-	"\aPingReq\x12\x10\n" +
-	"\x03msg\x18\x01 \x01(\tR\x03msg\"\x18\n" +
-	"\x04Pong\x12\x10\n" +
-	"\x03msg\x18\x01 \x01(\tR\x03msg2$\n" +
-	"\x03SFU\x12\x1d\n" +
-	"\x04Ping\x12\v.pb.PingReq\x1a\b.pb.PongB\fZ\n" +
+	"\x13api/proto/sfu.proto\x12\x03SFU\"9\n" +
+	"\x03SDP\x12 \n" +
+	"\x04type\x18\x01 \x01(\x0e2\f.SFU.SdpTypeR\x04type\x12\x10\n" +
+	"\x03sdp\x18\x02 \x01(\tR\x03sdp\",\n" +
+	"\fIceCandidate\x12\x1c\n" +
+	"\tcandidate\x18\x01 \x01(\tR\tcandidate\"a\n" +
+	"\vPeerRequest\x12 \n" +
+	"\x05offer\x18\x01 \x01(\v2\b.SFU.SDPH\x00R\x05offer\x12%\n" +
+	"\x03ice\x18\x02 \x01(\v2\x11.SFU.IceCandidateH\x00R\x03iceB\t\n" +
+	"\apayload\"d\n" +
+	"\fPeerResponse\x12\"\n" +
+	"\x06answer\x18\x01 \x01(\v2\b.SFU.SDPH\x00R\x06answer\x12%\n" +
+	"\x03ice\x18\x02 \x01(\v2\x11.SFU.IceCandidateH\x00R\x03iceB\t\n" +
+	"\apayload* \n" +
+	"\aSdpType\x12\t\n" +
+	"\x05OFFER\x10\x00\x12\n" +
+	"\n" +
+	"\x06ANSWER\x10\x0128\n" +
+	"\x03SFU\x121\n" +
+	"\x06Signal\x12\x10.SFU.PeerRequest\x1a\x11.SFU.PeerResponse(\x010\x01B\fZ\n" +
 	"api/proto/b\x06proto3"
 
 var (
@@ -134,19 +366,28 @@ func file_api_proto_sfu_proto_rawDescGZIP() []byte {
 	return file_api_proto_sfu_proto_rawDescData
 }
 
-var file_api_proto_sfu_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_api_proto_sfu_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_api_proto_sfu_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_api_proto_sfu_proto_goTypes = []any{
-	(*PingReq)(nil), // 0: pb.PingReq
-	(*Pong)(nil),    // 1: pb.Pong
+	(SdpType)(0),         // 0: SFU.SdpType
+	(*SDP)(nil),          // 1: SFU.SDP
+	(*IceCandidate)(nil), // 2: SFU.IceCandidate
+	(*PeerRequest)(nil),  // 3: SFU.PeerRequest
+	(*PeerResponse)(nil), // 4: SFU.PeerResponse
 }
 var file_api_proto_sfu_proto_depIdxs = []int32{
-	0, // 0: pb.SFU.Ping:input_type -> pb.PingReq
-	1, // 1: pb.SFU.Ping:output_type -> pb.Pong
-	1, // [1:2] is the sub-list for method output_type
-	0, // [0:1] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	0, // 0: SFU.SDP.type:type_name -> SFU.SdpType
+	1, // 1: SFU.PeerRequest.offer:type_name -> SFU.SDP
+	2, // 2: SFU.PeerRequest.ice:type_name -> SFU.IceCandidate
+	1, // 3: SFU.PeerResponse.answer:type_name -> SFU.SDP
+	2, // 4: SFU.PeerResponse.ice:type_name -> SFU.IceCandidate
+	3, // 5: SFU.SFU.Signal:input_type -> SFU.PeerRequest
+	4, // 6: SFU.SFU.Signal:output_type -> SFU.PeerResponse
+	6, // [6:7] is the sub-list for method output_type
+	5, // [5:6] is the sub-list for method input_type
+	5, // [5:5] is the sub-list for extension type_name
+	5, // [5:5] is the sub-list for extension extendee
+	0, // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_api_proto_sfu_proto_init() }
@@ -154,18 +395,27 @@ func file_api_proto_sfu_proto_init() {
 	if File_api_proto_sfu_proto != nil {
 		return
 	}
+	file_api_proto_sfu_proto_msgTypes[2].OneofWrappers = []any{
+		(*PeerRequest_Offer)(nil),
+		(*PeerRequest_Ice)(nil),
+	}
+	file_api_proto_sfu_proto_msgTypes[3].OneofWrappers = []any{
+		(*PeerResponse_Answer)(nil),
+		(*PeerResponse_Ice)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_proto_sfu_proto_rawDesc), len(file_api_proto_sfu_proto_rawDesc)),
-			NumEnums:      0,
-			NumMessages:   2,
+			NumEnums:      1,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_api_proto_sfu_proto_goTypes,
 		DependencyIndexes: file_api_proto_sfu_proto_depIdxs,
+		EnumInfos:         file_api_proto_sfu_proto_enumTypes,
 		MessageInfos:      file_api_proto_sfu_proto_msgTypes,
 	}.Build()
 	File_api_proto_sfu_proto = out.File

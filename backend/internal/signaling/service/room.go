@@ -12,10 +12,6 @@ import (
 	"vidcall/pkg/utils"
 )
 
-type Room struct {
-	*domain.Room
-}
-
 func NewRoom(ctx context.Context, duration time.Duration) (*domain.Room, string, error) {
 
 	log := logger.GetLog(ctx).With("layer", "service")

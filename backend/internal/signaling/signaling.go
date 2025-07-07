@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 
+	sfu "vidcall/api/proto"
 	"vidcall/internal/signaling/infra/mongox"
 	"vidcall/internal/signaling/infra/redisx"
 	"vidcall/internal/signaling/security"
@@ -13,6 +14,8 @@ import (
 	"vidcall/pkg/logger"
 
 	_ "github.com/joho/godotenv/autoload"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func Execute() {
@@ -32,12 +35,21 @@ func Execute() {
 	mongox.Init(os.Getenv("MONGODB_URI"), os.Getenv("DB_NAME"), 10)
 	redisx.Init(os.Getenv("REDIS_URI"), os.Getenv("REDIS_PASSWORD"), 0)
 
+	// Fire a gRPC connection between signaling and sfu
+	//  TODO: error handle here
+	sfuConn, _ := grpc.Dial("localhost:"+os.Getenv("SFU_PORT"), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	sfuClient := sfu.NewSFUClient(sfuConn)
+
 	// create new room and auth
 	mux.HandleFunc("GET /rooms/new/{duration}", security.WithIssuer(issuer)(transport.HandleCreateRoom))
 	mux.HandleFunc("POST /rooms/{room_id}/auth", security.WithIssuer(issuer)(transport.HandleAuth))
 
 	// secured endpoints
-	mux.HandleFunc("GET /ws", security.RequireAuth(issuer)(transport.HandleWS))
+	// mux.HandleFunc("GET /ws", security.RequireAuth(issuer)(func(w http.ResponseWriter, r *http.Request) {
+	// 	transport.HandleWS(w, r, sfuClient) }))
+	mux.HandleFunc("GET /ws", func(w http.ResponseWriter, r *http.Request) {
+		transport.HandleWS(w, r, sfuClient)
+	})
 
 	port := os.Getenv("SIGNALING_PORT")
 	server := &http.Server{
@@ -48,7 +60,7 @@ func Execute() {
 		},
 	}
 
-	log.Println("Server starting at port " + port)
+	log.Println("Signaling server starting at port " + port)
 	server.ListenAndServeTLS(cert, key)
 
 }

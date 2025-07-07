@@ -34,14 +34,7 @@ func HandleCreateRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.SetCookie(w, &http.Cookie{
-		Name:     "session_id",
-		Value:    host_token,
-		Path:     "/",
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-	})
+	utils.Cookie(w, host_token, "/")
 
 	utils.Respond(w, http.StatusCreated,
 		&resp{
@@ -71,16 +64,7 @@ func HandleAuth(w http.ResponseWriter, r *http.Request) {
 	token, err := service.Auth(ctx, roomID, req.Pin)
 	switch err {
 	case nil:
-
-		http.SetCookie(w, &http.Cookie{
-			Name:     "session_id",
-			Value:    token,
-			Path:     "/",
-			HttpOnly: true,
-			Secure:   true,
-			SameSite: http.SameSiteLaxMode,
-		})
-
+		utils.Cookie(w, token, "/")
 		utils.Respond(w, http.StatusOK, map[string]string{"token": token})
 	case service.ErrBadPin:
 		utils.Error(w, http.StatusUnauthorized, "unathorized")

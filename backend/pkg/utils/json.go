@@ -33,3 +33,14 @@ func Respond(w http.ResponseWriter, status int, body any) {
 func Error(w http.ResponseWriter, status int, msg string) {
 	Respond(w, status, map[string]string{"error": msg})
 }
+
+func Cookie(w http.ResponseWriter, token string, path string) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     "session_id",
+		Value:    token,
+		Path:     path,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+	})
+}
