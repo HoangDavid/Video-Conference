@@ -41,7 +41,7 @@ func fromRoomDoc(rd roomDoc) domain.Room {
 }
 
 func CreateRoomDoc(ctx context.Context, db *mongo.Database, room domain.Room) error {
-	log := logger.GetLog(ctx).With("layer", "repo", "roomID", room.RoomID)
+	log := logger.GetLog(ctx).With("layer", "repo", "service", "monogodb", "roomID", room.RoomID)
 
 	col := db.Collection("rooms")
 
@@ -59,7 +59,7 @@ func CreateRoomDoc(ctx context.Context, db *mongo.Database, room domain.Room) er
 }
 
 func GetRoomDoc(ctx context.Context, db *mongo.Database, roomID string) (*domain.Room, error) {
-	log := logger.GetLog(ctx).With("layer", "repo", "roomID", roomID)
+	log := logger.GetLog(ctx).With("layer", "repo", "service", "monogodb", "roomID", roomID)
 
 	col := db.Collection("rooms")
 

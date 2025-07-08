@@ -2,7 +2,6 @@ package security
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"vidcall/pkg/utils"
 )
@@ -35,8 +34,6 @@ func RequireAuth(i *Issuer) func(http.HandlerFunc) http.HandlerFunc {
 				utils.Error(w, http.StatusUnauthorized, "unathorized")
 				return
 			}
-
-			fmt.Println(claims.Role)
 
 			ctx := context.WithValue(r.Context(), ctxKey{}, claims)
 			next.ServeHTTP(w, r.WithContext(ctx))

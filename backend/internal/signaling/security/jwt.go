@@ -7,6 +7,7 @@ import (
 )
 
 type Claims struct {
+	Name   string
 	RoomID string
 	Role   string
 	jwt.RegisteredClaims
@@ -23,9 +24,10 @@ func NewIssuer(secret string) *Issuer {
 	return &Issuer{secret: []byte(secret), ttl: exp}
 }
 
-func (i *Issuer) Issue(roomID string, memberID string, role string) (string, error) {
+func (i *Issuer) Issue(roomID string, memberID string, name string, role string) (string, error) {
 	now := time.Now()
 	c := Claims{
+		Name:   name,
 		RoomID: roomID,
 		Role:   role,
 		RegisteredClaims: jwt.RegisteredClaims{

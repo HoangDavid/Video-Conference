@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"errors"
 	"time"
 )
 
@@ -11,3 +12,9 @@ type Room struct {
 	Date     time.Time
 	Duration time.Duration
 }
+
+var (
+	ErrNotFound  = errors.New("room not found")
+	ErrBadPin    = errors.New("invalid pin")
+	ErrForbidden = errors.New("not permitted")
+)

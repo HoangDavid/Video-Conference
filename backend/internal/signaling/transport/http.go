@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"time"
 
+	"vidcall/internal/signaling/domain"
 	"vidcall/internal/signaling/service"
 	"vidcall/pkg/logger"
 	"vidcall/pkg/utils"
@@ -22,13 +23,15 @@ func HandleCreateRoom(w http.ResponseWriter, r *http.Request) {
 	log := logger.GetLog(ctx).With("layer", "transport")
 
 	duration, err := time.ParseDuration(r.PathValue("duration"))
+	name := r.URL.Query().Get("name")
+
 	if err != nil {
 		log.Warn("Unable to parse meeting duration")
 		utils.Error(w, http.StatusBadRequest, "invalid payload format")
 		return
 	}
 
-	room, host_token, err := service.NewRoom(ctx, duration)
+	room, host_token, err := service.NewRoom(ctx, duration, name)
 	if err != nil {
 		utils.Error(w, http.StatusInternalServerError, "internal error")
 		return
@@ -55,37 +58,24 @@ func HandleAuth(w http.ResponseWriter, r *http.Request) {
 	log := logger.GetLog(ctx).With("layer", "transport")
 
 	roomID := r.PathValue("room_id")
+	name := r.URL.Query().Get("name")
 	err := utils.Decode(r, &req)
 	if err != nil {
 		log.Error("unable to decode request payload")
 		utils.Error(w, http.StatusBadRequest, "invalid payload format")
 	}
 
-	token, err := service.Auth(ctx, roomID, req.Pin)
+	token, err := service.Auth(ctx, roomID, req.Pin, name)
 	switch err {
 	case nil:
 		utils.Cookie(w, token, "/")
 		utils.Respond(w, http.StatusOK, map[string]string{"token": token})
-	case service.ErrBadPin:
+	case domain.ErrBadPin:
 		utils.Error(w, http.StatusUnauthorized, "unathorized")
-	case service.ErrNotFound:
+	case domain.ErrNotFound:
 		utils.Error(w, http.StatusNotFound, "room not found")
 	default:
 		utils.Error(w, http.StatusInternalServerError, "internal error")
 	}
-
-}
-
-// /rooms/{room_id}/start
-func HandleStartRoom(w http.ResponseWriter, r *http.Request) {
-
-}
-
-// /rooms/{room_id}/join
-func HandleJoinRoom(w http.ResponseWriter, r *http.Request) {
-
-}
-
-func HandleLobby(w http.ResponseWriter, r *http.Request) {
 
 }

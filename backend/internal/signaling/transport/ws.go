@@ -1,12 +1,15 @@
 package transport
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"sync"
 	"time"
 
 	sfu "vidcall/api/proto"
+	"vidcall/internal/signaling/service"
 	"vidcall/pkg/logger"
 
 	"github.com/gorilla/websocket"
@@ -64,57 +67,75 @@ func HandleWS(w http.ResponseWriter, r *http.Request, sfuCLient sfu.SFUClient) {
 
 	defer hub.CloseOne(conn, websocket.CloseNormalClosure, "")
 
-	// TODO: ad channel to catch errors
-	go onSendSFU(conn, stream)
-	go onListenSFU(conn, stream)
+	// TODO: add channel to catch errors
+	go onSendSFU(ctx, conn, stream)
+	go onListenSFU(ctx, conn, stream)
+
+	// TODO: something here to keep live
 
 }
 
 type Signal struct {
-	Type string `json:"type"`
-	SDP  string `json:"sdp,omitempty"`
-	ICE  string `json:"ice,omitempty"`
+	Type    string          `json:"type"`
+	Payload json.RawMessage `json:"payload,omitempty"`
 }
 
-func onSendSFU(conn *websocket.Conn, stream sfu.SFU_SignalClient) {
+func onSendSFU(ctx context.Context, conn *websocket.Conn, stream sfu.SFU_SignalClient) {
 	for {
 		var msg Signal
 		// TODO: Error handle here
 		err := conn.ReadJSON(&msg)
-
 		if err != nil {
-			fmt.Println(err)
+			fmt.Println(err) // TODO: change this to logging
 			return
 		}
 
 		// TODO: error handle
 		switch msg.Type {
 		case "offer":
+			var offer struct {
+				SDP string `json:"offer"`
+			}
+
+			_ = json.Unmarshal(msg.Payload, &offer)
 			_ = stream.Send(&sfu.PeerRequest{
 				Payload: &sfu.PeerRequest_Offer{
 					Offer: &sfu.SDP{
 						Type: sfu.SdpType_OFFER,
-						Sdp:  msg.SDP,
+						Sdp:  offer.SDP,
 					},
 				},
 			})
 
 		case "ice":
+			var ice struct {
+				Candidate string `json:"candidate"`
+			}
+
+			_ = json.Unmarshal(msg.Payload, &ice)
 			_ = stream.Send(&sfu.PeerRequest{
 				Payload: &sfu.PeerRequest_Ice{
 					Ice: &sfu.IceCandidate{
-						Candidate: msg.ICE,
+						Candidate: ice.Candidate,
 					},
 				},
 			})
 
+		case "start_room":
+			service.StartRoom(ctx)
+		case "join":
+			service.JoinRoom(ctx)
+		case "leave":
+			service.LeaveRoom(ctx)
+		case "mute_video":
+		case "mute_audio":
 		default:
 		}
 	}
 
 }
 
-func onListenSFU(conn *websocket.Conn, stream sfu.SFU_SignalClient) {
+func onListenSFU(context context.Context, conn *websocket.Conn, stream sfu.SFU_SignalClient) {
 
 	// TODO: error handling
 	for {
@@ -122,6 +143,11 @@ func onListenSFU(conn *websocket.Conn, stream sfu.SFU_SignalClient) {
 
 		switch p := resp.Payload.(type) {
 		case *sfu.PeerResponse_Answer:
+
+			type answer struct {
+				SDP string
+			}
+
 			_ = conn.WriteJSON(Signal{
 				Type: "answer",
 				SDP:  p.Answer.Sdp,
@@ -129,7 +155,7 @@ func onListenSFU(conn *websocket.Conn, stream sfu.SFU_SignalClient) {
 		case *sfu.PeerResponse_Ice:
 			_ = conn.WriteJSON(Signal{
 				Type: "ice",
-				SDP:  p.Ice.Candidate,
+				ICE:  p.Ice.Candidate,
 			})
 		default:
 		}
