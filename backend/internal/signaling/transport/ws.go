@@ -13,6 +13,7 @@ import (
 	"vidcall/pkg/logger"
 
 	"github.com/gorilla/websocket"
+	"golang.org/x/sync/errgroup"
 )
 
 type Hub struct {
@@ -62,64 +63,81 @@ func HandleWS(w http.ResponseWriter, r *http.Request, sfuCLient sfu.SFUClient) {
 		return
 	}
 
-	// TODO: error handle
-	stream, _ := sfuCLient.Signal(ctx)
+	stream, err := sfuCLient.Signal(ctx)
+	if err != nil {
+		log.Error(fmt.Sprintf("websocket closed with error: %v", err))
+	}
 
-	defer hub.CloseOne(conn, websocket.CloseNormalClosure, "")
+	g, ctx := errgroup.WithContext(ctx)
+	g.Go(func() error {
+		return onSendSFU(ctx, conn, stream)
+	})
 
-	// TODO: add channel to catch errors
-	go onSendSFU(ctx, conn, stream)
-	go onListenSFU(ctx, conn, stream)
+	g.Go(func() error {
+		return onListenSFU(ctx, conn, stream)
+	})
 
-	// TODO: something here to keep live
+	if err := g.Wait(); err != nil {
+		log.Error(fmt.Sprintf("websocket closed with error: %v", err))
+	}
+
+	hub.CloseOne(conn, websocket.CloseNormalClosure, "")
 
 }
 
-type Signal struct {
+type signal struct {
 	Type    string          `json:"type"`
 	Payload json.RawMessage `json:"payload,omitempty"`
 }
 
-func onSendSFU(ctx context.Context, conn *websocket.Conn, stream sfu.SFU_SignalClient) {
+type sdp struct {
+	SDP string `json:"sdp"`
+}
+
+type ice struct {
+	Candidate string `json:"candidate"`
+}
+
+func onSendSFU(ctx context.Context, conn *websocket.Conn, stream sfu.SFU_SignalClient) error {
 	for {
-		var msg Signal
-		// TODO: Error handle here
+		var msg signal
 		err := conn.ReadJSON(&msg)
 		if err != nil {
-			fmt.Println(err) // TODO: change this to logging
-			return
+			return err
 		}
 
-		// TODO: error handle
 		switch msg.Type {
 		case "offer":
-			var offer struct {
-				SDP string `json:"offer"`
-			}
+			var offer sdp
 
-			_ = json.Unmarshal(msg.Payload, &offer)
-			_ = stream.Send(&sfu.PeerRequest{
+			if err := json.Unmarshal(msg.Payload, &offer); err != nil {
+				return err
+			}
+			if err := stream.Send(&sfu.PeerRequest{
 				Payload: &sfu.PeerRequest_Offer{
 					Offer: &sfu.SDP{
 						Type: sfu.SdpType_OFFER,
 						Sdp:  offer.SDP,
 					},
 				},
-			})
-
-		case "ice":
-			var ice struct {
-				Candidate string `json:"candidate"`
+			}); err != nil {
+				return err
 			}
 
-			_ = json.Unmarshal(msg.Payload, &ice)
-			_ = stream.Send(&sfu.PeerRequest{
+		case "ice":
+			var candidate ice
+			if err := json.Unmarshal(msg.Payload, &candidate); err != nil {
+				return err
+			}
+			if err := stream.Send(&sfu.PeerRequest{
 				Payload: &sfu.PeerRequest_Ice{
 					Ice: &sfu.IceCandidate{
-						Candidate: ice.Candidate,
+						Candidate: candidate.Candidate,
 					},
 				},
-			})
+			}); err != nil {
+				return err
+			}
 
 		case "start_room":
 			service.StartRoom(ctx)
@@ -135,28 +153,41 @@ func onSendSFU(ctx context.Context, conn *websocket.Conn, stream sfu.SFU_SignalC
 
 }
 
-func onListenSFU(context context.Context, conn *websocket.Conn, stream sfu.SFU_SignalClient) {
+func onListenSFU(context context.Context, conn *websocket.Conn, stream sfu.SFU_SignalClient) error {
 
-	// TODO: error handling
 	for {
-		resp, _ := stream.Recv()
+		resp, err := stream.Recv()
+
+		if err != nil {
+			return err
+		}
 
 		switch p := resp.Payload.(type) {
 		case *sfu.PeerResponse_Answer:
-
-			type answer struct {
-				SDP string
+			raw, err := json.Marshal(sdp{SDP: p.Answer.Sdp})
+			if err != nil {
+				return err
 			}
 
-			_ = conn.WriteJSON(Signal{
-				Type: "answer",
-				SDP:  p.Answer.Sdp,
-			})
+			if err := conn.WriteJSON(signal{
+				Type:    "answer",
+				Payload: raw,
+			}); err != nil {
+				return err
+			}
+
 		case *sfu.PeerResponse_Ice:
-			_ = conn.WriteJSON(Signal{
-				Type: "ice",
-				ICE:  p.Ice.Candidate,
-			})
+			raw, err := json.Marshal(ice{Candidate: p.Ice.Candidate})
+			if err != nil {
+				return err
+			}
+
+			if err := conn.WriteJSON(signal{
+				Type:    "ice",
+				Payload: raw,
+			}); err != nil {
+				return err
+			}
 		default:
 		}
 	}

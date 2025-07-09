@@ -29,6 +29,7 @@ func Execute() {
 	key := os.Getenv("TLS_KEY")
 	if cert == "" || key == "" {
 		log.Fatalf("TLS_CERT or TLS_KEY are not set")
+		return
 	}
 
 	// Fire up infra: MongoDB and Redis
@@ -36,8 +37,11 @@ func Execute() {
 	redisx.Init(os.Getenv("REDIS_URI"), os.Getenv("REDIS_PASSWORD"), 0)
 
 	// Fire a gRPC connection between signaling and sfu
-	//  TODO: error handle here
-	sfuConn, _ := grpc.Dial("localhost:"+os.Getenv("SFU_PORT"), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	sfuConn, err := grpc.Dial("localhost"+os.Getenv("SFU_PORT"), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Fatal(err)
+		return
+	}
 	sfuClient := sfu.NewSFUClient(sfuConn)
 
 	// create new room and auth
@@ -61,6 +65,6 @@ func Execute() {
 	}
 
 	log.Println("Signaling server starting at port " + port)
-	server.ListenAndServeTLS(cert, key)
+	log.Fatal(server.ListenAndServeTLS(cert, key))
 
 }

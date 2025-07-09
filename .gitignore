@@ -1,0 +1,5 @@
+/backend/.env
+/backend/dev.crt
+/backend/dev.key
+/backend/dev.pem
+/backend/cookiejar.txt

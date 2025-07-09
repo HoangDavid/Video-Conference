@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	sfu "vidcall/api/proto"
 	"vidcall/internal/sfu/domain"
 
@@ -41,6 +42,40 @@ func NewPeer(ctx context.Context, stream sfu.SFU_SignalServer, stuns []string) *
 		},
 	)
 
+	pc.OnTrack(func(tr *webrtc.TrackRemote, r *webrtc.RTPReceiver) {
+		// Error handling
+		local, _ := webrtc.NewTrackLocalStaticRTP(
+			tr.Codec().RTPCodecCapability,
+			tr.ID(),
+			"peer1",
+		)
+
+		sender, _ := pc.AddTrack(local)
+
+		go func() {
+			for {
+				pkt, _, err := tr.ReadRTP()
+				if err != nil {
+					return
+				}
+				_ = local.WriteRTP(pkt)
+			}
+		}()
+
+		// Consume rtp so Pion stay healthy??? check on this later
+		go func() {
+			buf := make([]byte, 1500)
+			for {
+				if _, _, err := sender.Read(buf); err != nil {
+					return
+				}
+			}
+
+		}()
+
+	})
+
+	//
 	return &Peer{
 		Peer: &domain.Peer{
 			PC:         pc,
@@ -52,7 +87,13 @@ func NewPeer(ctx context.Context, stream sfu.SFU_SignalServer, stuns []string) *
 
 func (p *Peer) Negotiate() {
 	for {
-		req, _ := p.Stream.Recv()
+
+		// TODO: handle and log error
+		req, err := p.Stream.Recv()
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
 
 		switch msg := req.GetPayload().(type) {
 		// Check on this !
@@ -81,6 +122,8 @@ func (p *Peer) Negotiate() {
 			})
 
 		case *sfu.PeerRequest_Ice:
+
+			fmt.Println("recieved ice")
 			_ = p.PC.AddICECandidate(webrtc.ICECandidateInit{
 				Candidate: msg.Ice.Candidate,
 			})
