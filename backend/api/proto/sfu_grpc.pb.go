@@ -26,7 +26,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type SFUClient interface {
-	Signal(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[PeerRequest, PeerResponse], error)
+	Signal(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[PeerSignal, PeerSignal], error)
 }
 
 type sFUClient struct {
@@ -37,24 +37,24 @@ func NewSFUClient(cc grpc.ClientConnInterface) SFUClient {
 	return &sFUClient{cc}
 }
 
-func (c *sFUClient) Signal(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[PeerRequest, PeerResponse], error) {
+func (c *sFUClient) Signal(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[PeerSignal, PeerSignal], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	stream, err := c.cc.NewStream(ctx, &SFU_ServiceDesc.Streams[0], SFU_Signal_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &grpc.GenericClientStream[PeerRequest, PeerResponse]{ClientStream: stream}
+	x := &grpc.GenericClientStream[PeerSignal, PeerSignal]{ClientStream: stream}
 	return x, nil
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type SFU_SignalClient = grpc.BidiStreamingClient[PeerRequest, PeerResponse]
+type SFU_SignalClient = grpc.BidiStreamingClient[PeerSignal, PeerSignal]
 
 // SFUServer is the server API for SFU service.
 // All implementations must embed UnimplementedSFUServer
 // for forward compatibility.
 type SFUServer interface {
-	Signal(grpc.BidiStreamingServer[PeerRequest, PeerResponse]) error
+	Signal(grpc.BidiStreamingServer[PeerSignal, PeerSignal]) error
 	mustEmbedUnimplementedSFUServer()
 }
 
@@ -65,7 +65,7 @@ type SFUServer interface {
 // pointer dereference when methods are called.
 type UnimplementedSFUServer struct{}
 
-func (UnimplementedSFUServer) Signal(grpc.BidiStreamingServer[PeerRequest, PeerResponse]) error {
+func (UnimplementedSFUServer) Signal(grpc.BidiStreamingServer[PeerSignal, PeerSignal]) error {
 	return status.Errorf(codes.Unimplemented, "method Signal not implemented")
 }
 func (UnimplementedSFUServer) mustEmbedUnimplementedSFUServer() {}
@@ -90,11 +90,11 @@ func RegisterSFUServer(s grpc.ServiceRegistrar, srv SFUServer) {
 }
 
 func _SFU_Signal_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(SFUServer).Signal(&grpc.GenericServerStream[PeerRequest, PeerResponse]{ServerStream: stream})
+	return srv.(SFUServer).Signal(&grpc.GenericServerStream[PeerSignal, PeerSignal]{ServerStream: stream})
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type SFU_SignalServer = grpc.BidiStreamingServer[PeerRequest, PeerResponse]
+type SFU_SignalServer = grpc.BidiStreamingServer[PeerSignal, PeerSignal]
 
 // SFU_ServiceDesc is the grpc.ServiceDesc for SFU service.
 // It's only intended for direct use with grpc.RegisterService,

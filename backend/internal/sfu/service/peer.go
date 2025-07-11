@@ -5,6 +5,7 @@ import (
 	"fmt"
 	sfu "vidcall/api/proto"
 	"vidcall/internal/sfu/domain"
+	"vidcall/pkg/logger"
 
 	"github.com/pion/webrtc/v3"
 )
@@ -15,69 +16,96 @@ type Peer struct {
 
 func NewPeer(ctx context.Context, stream sfu.SFU_SignalServer, stuns []string) *Peer {
 	// TODO: add Turn server, error handling, and logging
+
+	log := logger.GetLog(ctx).With("layer", "service")
+
 	pc, _ := webrtc.NewPeerConnection(webrtc.Configuration{
 		ICEServers: []webrtc.ICEServer{
 			{URLs: []string{"stun:stun.l.google.com:19302"}},
 		},
 	})
 
+	pc.AddTransceiverFromKind(webrtc.RTPCodecTypeVideo)
+	pc.AddTransceiverFromKind(webrtc.RTPCodecTypeAudio)
+
 	done := make(chan struct{})
 	// TODO: on network failure
 	pc.OnICECandidate(
 		func(c *webrtc.ICECandidate) {
 			if c == nil {
-				close(done)
+				log.Info("no more candidates")
 				return
 			}
 
 			//  Send ICE candidate
 			// TODO: error handling
-			_ = stream.Send(&sfu.PeerResponse{
-				Payload: &sfu.PeerResponse_Ice{
-					Ice: &sfu.IceCandidate{
-						Candidate: c.ToJSON().Candidate,
-					},
+			cad := c.ToJSON()
+			ice := &sfu.IceCandidate{
+				Candidate:     cad.Candidate,
+				SdpMid:        *cad.SDPMid,
+				SdpMlineIndex: uint32(*cad.SDPMLineIndex),
+			}
+
+			_ = stream.Send(&sfu.PeerSignal{
+				Payload: &sfu.PeerSignal_Ice{
+					Ice: ice,
 				},
 			})
+
+			log.Info("sent ice")
 		},
 	)
 
-	pc.OnTrack(func(tr *webrtc.TrackRemote, r *webrtc.RTPReceiver) {
-		// Error handling
-		local, _ := webrtc.NewTrackLocalStaticRTP(
-			tr.Codec().RTPCodecCapability,
-			tr.ID(),
-			"peer1",
+	pc.OnTrack(func(remote *webrtc.TrackRemote, recv *webrtc.RTPReceiver) {
+		log.Info(fmt.Sprintf("🔄 got %s – echoing back", remote.Kind()))
+
+		local, err := webrtc.NewTrackLocalStaticRTP(
+			remote.Codec().RTPCodecCapability,
+			remote.ID()+"-loop",
+			"pion",
 		)
+		if err != nil {
+			log.Error(fmt.Sprintf("track create: %v", err))
+			return
+		}
 
-		sender, _ := pc.AddTrack(local)
+		sender, err := pc.AddTrack(local)
+		if err != nil {
+			log.Error(fmt.Sprintf("addTrack: %v", err))
+			return
+		}
 
 		go func() {
 			for {
-				pkt, _, err := tr.ReadRTP()
+				// Grab one full RTP packet from the incoming track.
+				pkt, _, err := remote.ReadRTP() // ★ ReadRTP gives *rtp.Packet
 				if err != nil {
+					log.Error("can't read rtp")
 					return
 				}
-				_ = local.WriteRTP(pkt)
+
+				if writeErr := local.WriteRTP(pkt); writeErr != nil {
+					log.Error("write failed")
+					return
+				}
 			}
 		}()
 
-		// Consume rtp so Pion stay healthy??? check on this later
 		go func() {
-			buf := make([]byte, 1500)
+			rtcpBuf := make([]byte, 1500)
 			for {
-				if _, _, err := sender.Read(buf); err != nil {
+				if _, _, err := sender.Read(rtcpBuf); err != nil {
 					return
 				}
+
+				log.Info("got RTCP for video")
 			}
-
 		}()
-
 	})
 
-	//
 	return &Peer{
 		Peer: &domain.Peer{
+			Ctx:        ctx,
 			PC:         pc,
 			IceCanDone: done,
 			Stream:     stream,
@@ -86,47 +114,75 @@ func NewPeer(ctx context.Context, stream sfu.SFU_SignalServer, stuns []string) *
 }
 
 func (p *Peer) Negotiate() {
+	log := logger.GetLog(p.Ctx).With("layer", "service")
+	ice_buffer := make(chan webrtc.ICECandidateInit, 10)
+
 	for {
 
 		// TODO: handle and log error
 		req, err := p.Stream.Recv()
 		if err != nil {
-			fmt.Println(err)
+			log.Error("something went wrong with stream")
 			return
 		}
 
 		switch msg := req.GetPayload().(type) {
 		// Check on this !
-		case *sfu.PeerRequest_Offer:
+		case *sfu.PeerSignal_Sdp:
 			offer := webrtc.SessionDescription{
 				Type: webrtc.SDPTypeOffer,
-				SDP:  msg.Offer.Sdp,
+				SDP:  msg.Sdp.Sdp,
 			}
 
 			// TODO: error handle
 			_ = p.PC.SetRemoteDescription(offer)
+			log.Info("set remote description")
+
+			// Flush ice candidate
+			go func() {
+				for {
+					select {
+					case c := <-ice_buffer:
+						fmt.Println(c)
+						p.PC.AddICECandidate(c)
+					default:
+						return
+					}
+				}
+			}()
 
 			// TODO: error handle and create answer
 			answer, _ := p.PC.CreateAnswer(nil)
 			p.PC.SetLocalDescription(answer)
 
 			// TODO: error handle and send back SDP
-			<-webrtc.GatheringCompletePromise(p.PC)
-			_ = p.Stream.Send(&sfu.PeerResponse{
-				Payload: &sfu.PeerResponse_Answer{
-					Answer: &sfu.SDP{
+			_ = p.Stream.Send(&sfu.PeerSignal{
+				Payload: &sfu.PeerSignal_Sdp{
+					Sdp: &sfu.SDP{
 						Type: sfu.SdpType_ANSWER,
 						Sdp:  p.PC.LocalDescription().SDP,
 					},
 				},
 			})
 
-		case *sfu.PeerRequest_Ice:
+		case *sfu.PeerSignal_Ice:
 
-			fmt.Println("recieved ice")
-			_ = p.PC.AddICECandidate(webrtc.ICECandidateInit{
-				Candidate: msg.Ice.Candidate,
-			})
+			i := uint16(msg.Ice.SdpMlineIndex)
+			ice := webrtc.ICECandidateInit{
+				Candidate:        msg.Ice.Candidate,
+				SDPMid:           &msg.Ice.SdpMid,
+				SDPMLineIndex:    &i,
+				UsernameFragment: &msg.Ice.UsernameFragment,
+			}
+
+			if p.PC.RemoteDescription() != nil {
+				if err := p.PC.AddICECandidate(ice); err != nil {
+					log.Error(fmt.Sprintf("can't add Ice with error: %v", err))
+				}
+				log.Info("added ice")
+			} else {
+				ice_buffer <- ice
+			}
 
 		default:
 

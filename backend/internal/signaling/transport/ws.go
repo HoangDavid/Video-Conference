@@ -95,7 +95,10 @@ type sdp struct {
 }
 
 type ice struct {
-	Candidate string `json:"candidate"`
+	Candidate         string `json:"candidate"`
+	SpdMid            string `json:"sdpMid"`
+	SpdMLineIndex     uint32 `json:"sdpMLineIndex"`
+	UsernameFragmment string `json:"usernameFragment,omitempty"`
 }
 
 func onSendSFU(ctx context.Context, conn *websocket.Conn, stream sfu.SFU_SignalClient) error {
@@ -113,9 +116,9 @@ func onSendSFU(ctx context.Context, conn *websocket.Conn, stream sfu.SFU_SignalC
 			if err := json.Unmarshal(msg.Payload, &offer); err != nil {
 				return err
 			}
-			if err := stream.Send(&sfu.PeerRequest{
-				Payload: &sfu.PeerRequest_Offer{
-					Offer: &sfu.SDP{
+			if err := stream.Send(&sfu.PeerSignal{
+				Payload: &sfu.PeerSignal_Sdp{
+					Sdp: &sfu.SDP{
 						Type: sfu.SdpType_OFFER,
 						Sdp:  offer.SDP,
 					},
@@ -124,15 +127,36 @@ func onSendSFU(ctx context.Context, conn *websocket.Conn, stream sfu.SFU_SignalC
 				return err
 			}
 
+		case "answer":
+			var answer sdp
+			if err := json.Unmarshal(msg.Payload, &answer); err != nil {
+				return err
+			}
+			if err := stream.Send(&sfu.PeerSignal{
+				Payload: &sfu.PeerSignal_Sdp{
+					Sdp: &sfu.SDP{
+						Type: sfu.SdpType_OFFER,
+						Sdp:  answer.SDP,
+					},
+				},
+			}); err != nil {
+				return err
+			}
+
 		case "ice":
 			var candidate ice
+
 			if err := json.Unmarshal(msg.Payload, &candidate); err != nil {
 				return err
 			}
-			if err := stream.Send(&sfu.PeerRequest{
-				Payload: &sfu.PeerRequest_Ice{
+
+			if err := stream.Send(&sfu.PeerSignal{
+				Payload: &sfu.PeerSignal_Ice{
 					Ice: &sfu.IceCandidate{
-						Candidate: candidate.Candidate,
+						Candidate:        candidate.Candidate,
+						SdpMid:           candidate.SpdMid,
+						SdpMlineIndex:    candidate.SpdMLineIndex,
+						UsernameFragment: candidate.UsernameFragmment,
 					},
 				},
 			}); err != nil {
@@ -163,21 +187,37 @@ func onListenSFU(context context.Context, conn *websocket.Conn, stream sfu.SFU_S
 		}
 
 		switch p := resp.Payload.(type) {
-		case *sfu.PeerResponse_Answer:
-			raw, err := json.Marshal(sdp{SDP: p.Answer.Sdp})
+		case *sfu.PeerSignal_Sdp:
+
+			raw, err := json.Marshal(sdp{SDP: p.Sdp.Sdp})
 			if err != nil {
 				return err
 			}
 
-			if err := conn.WriteJSON(signal{
-				Type:    "answer",
-				Payload: raw,
-			}); err != nil {
-				return err
+			switch p.Sdp.Type {
+			case sfu.SdpType_OFFER:
+				if err := conn.WriteJSON(signal{
+					Type:    "offer",
+					Payload: raw,
+				}); err != nil {
+					return err
+				}
+			case sfu.SdpType_ANSWER:
+				if err := conn.WriteJSON(signal{
+					Type:    "answer",
+					Payload: raw,
+				}); err != nil {
+					return err
+				}
 			}
 
-		case *sfu.PeerResponse_Ice:
-			raw, err := json.Marshal(ice{Candidate: p.Ice.Candidate})
+		case *sfu.PeerSignal_Ice:
+			raw, err := json.Marshal(ice{
+				Candidate:     p.Ice.Candidate,
+				SpdMid:        p.Ice.SdpMid,
+				SpdMLineIndex: p.Ice.SdpMlineIndex,
+			})
+
 			if err != nil {
 				return err
 			}
