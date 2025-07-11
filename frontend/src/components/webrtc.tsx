@@ -1,111 +1,160 @@
 import { useEffect, useRef} from "react";
-import type { Signal} from "./types";
+import type { Signal, Ice} from "./types";
+
+
 
 export default function OnePeerClient() {
-    const pc = useRef<RTCPeerConnection | null>(null)
-    const ws = useRef<WebSocket | null>(null)
+  const pc = useRef<RTCPeerConnection | null>(null);
+  const ws = useRef<WebSocket | null>(null);
 
-    const localRef  = useRef<HTMLVideoElement>(null)
-    const remoteRef = useRef<HTMLVideoElement>(null)
+  const localRef  = useRef<HTMLVideoElement>(null);
+  const remoteRef = useRef<HTMLVideoElement>(null);
 
-    useEffect(() => {
-        (async() => {
-            const stream = await navigator.mediaDevices.getUserMedia({audio: false, video: true})
-            if (localRef.current){
-                localRef.current.srcObject = stream
-                localRef.current.muted = true
-                await localRef.current.play()
-            }
+  const statsTimer  = useRef<number | null>(null); 
 
-            ws.current = new WebSocket("wss://localhost:8443/ws")
-            pc.current = new RTCPeerConnection({
-                iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
-            })
+  const pending: RTCIceCandidateInit[] = [];
 
-            stream.getTracks().forEach(t => pc.current!.addTrack(t, stream))
+  function buffer(c: RTCIceCandidateInit) {
+    pending.push(c);          // producer
+  }
 
-            pc.current.onicecandidate = e => {
-                if (e.candidate) {
-                    const msg: Signal = {
-                        type: "ice",
-                        payload: {candidate: e.candidate.toJSON()}
-                    }
-                     ws.current!.send(JSON.stringify(msg))
-                }
-            }
+  async function flush(pc: RTCPeerConnection) {
+    for (const c of pending) await pc.addIceCandidate(c);
+    pending.length = 0;       // consumer
+  }
 
 
-            pc.current.ontrack = e => {
-                console.log('🔔 ontrack kind=', e.track.kind, 'id=', e.track.id);
-                // one MediaStream per video element
-                const rs = (remoteRef.current!.srcObject ||
-                new MediaStream()) as MediaStream
+  useEffect(() => {
+    (async () => {
+      /* 1. local media preview */
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true});
+      
+      if (localRef.current) {
+        localRef.current.srcObject = stream;
+        localRef.current.muted = true;
+        await localRef.current.play();
+      }
 
-                if (!rs.getTracks().some(t => t.id === e.track.id)) {
-                    rs.addTrack(e.track)
-                    remoteRef.current!.srcObject = rs
-                }
-            }
+      /* 2. WS + PeerConnection */
+      ws.current = new WebSocket("wss://localhost:8443/ws");
+      pc.current = new RTCPeerConnection({
+        iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+      });
 
+      stream.getTracks().forEach(t => pc.current!.addTrack(t, stream));
+      const remoteStream = new MediaStream();
+      if (remoteRef.current) remoteRef.current!.srcObject = remoteStream;
+
+      pc.current.ontrack = ev => {
+        console.log("new remote track", ev.track.kind, ev.track.id);
+        remoteStream.addTrack(ev.track);
+        remoteRef.current?.play()
+      }
+
+      pc.current.onicecandidate = e => {
+        if (!e.candidate) return;
+        const msg: Signal = {
+          type: "ice",
+          payload: e.candidate.toJSON() as Ice,
+        };
+        ws.current!.send(JSON.stringify(msg));
+        console.log("ice sent")
+      };      
+
+      ws.current.onmessage = async ev => {
+        const msg = JSON.parse(ev.data) as Signal;
+
+        if (msg.type === "answer") {
+          const { sdp } = msg.payload as { sdp: string };
+          await pc.current!.setRemoteDescription(
+            new RTCSessionDescription({ type: "answer", sdp })
+          );
+          console.log("remote description set")
+          flush(pc.current!)
+          console.log("add ice")
+          
+        }
+
+        // TODO: add recieving offer to do renegotiation
+
+        if (msg.type === "ice") {
+          // console.log(msg.payload)
+          const payload  = msg.payload as Ice
+          const ice: RTCIceCandidateInit = {
+            candidate: payload.candidate,
+            sdpMid: payload.sdpMid,
+            sdpMLineIndex: payload.sdpMLineIndex
+          }
+
+          if (pc.current!.remoteDescription) {
+            await pc.current!.addIceCandidate(ice)
+            console.log("add ice")
+          }else {
+            buffer(ice)
+            console.log("buffer ice")
+          }
             
-            const pending: RTCIceCandidateInit[] = [];
-            ws.current.onmessage = async e => {
-                const msg = JSON.parse(e.data) as Signal;
 
-                if (msg.type === "answer") {
-                    const { sdp } = msg.payload as { sdp: string };
-                    console.log("setting remote")
-                    await pc.current!.setRemoteDescription(
-                    new RTCSessionDescription({ type: "answer", sdp })
-                    );
+        }
+      };
 
-                    /* flush any ICE that arrived early */
-                    for (const ice of pending) {
-                    await pc.current!.addIceCandidate(ice);
-                    }
-                    pending.length = 0;                  // clear queue
-                }
-
-                if (msg.type === "ice") {
-                    const ice = typeof msg.payload === "string"
-                    ? JSON.parse(msg.payload)
-                    : msg.payload;
-                    
-                    if (!('sdpMid' in ice) && !('sdpMLineIndex' in ice)) {
-                        ice.sdpMid        = '0';  // or the mid string you see in the SDP ("video")
-                        ice.sdpMLineIndex = 0;    // first m-line
-                    }
-
-                    console.log('⬅  ICE from server:', ice);
-
-                    if (pc.current!.remoteDescription) {
-                        console.log("adding Ice")
-                        await pc.current!.addIceCandidate(ice as RTCIceCandidateInit);
-                    } else {
-                        pending.push(ice as RTCIceCandidateInit);
-                    }
-                }
-                
+      statsTimer.current = window.setInterval(() => {
+        if (!pc.current) return;
+        pc.current.getStats().then(stats => {
+          stats.forEach(r => {
+            if (r.type === "outbound-rtp" && r.kind === "video") {
+              console.log(`[stats] video framesSent=${r.framesSent}`);
+            }
+            if (r.type === "outbound-rtp" && r.kind === "audio") {
+              console.log(`[stats] audio packetsSent=${r.packetsSent}`);
             }
 
-            ws.current.onopen = async() => {
-                const offer = await pc.current!.createOffer()
-                await pc.current!.setLocalDescription(offer)
-                ws.current!.send(
-                    JSON.stringify({type: "offer", payload: {sdp: offer.sdp}})
-                )
+            /* ►►  inbound (NEW — receiving side)  ◄◄ */
+            if (r.type === "inbound-rtp" && r.kind === "video") {
+              console.log(`[recv]  video framesDecoded  = ${r.framesDecoded}`);
+              console.log(`[recv]  video packetsLost    = ${r.packetsLost}`);
             }
+            if (r.type === "inbound-rtp" && r.kind === "audio") {
+              console.log(`[recv]  audio packetsReceived = ${r.packetsReceived}`);
+              console.log(`[recv]  audio jitter         = ${r.jitter}`);
+            }
+          });
+        });
+      }, 2_000);
 
-        })()
+      pc.current!.onconnectionstatechange = () =>
+        console.log("PC state →", pc.current!.connectionState)
+
+
+      ws.current.onopen = async () => {
+        const offer = await pc.current!.createOffer();
+        await pc.current!.setLocalDescription(offer);
         
-    return () => {
-      pc.current?.close()
-      ws.current?.close()
-    }
-    }, [])
+        const msg: Signal = {
+          type: "offer",
+          payload: { sdp: offer.sdp },
+        };
 
-    return <>
-      <video ref={localRef} style={{ width: 300 }} />
-      <video ref={remoteRef} style={{ width: 300 }} autoPlay playsInline />
+        // send offer
+        ws.current!.send(JSON.stringify(msg));
+        console.log("offer sent")
+      };
+
+    })();
+
+    return () => {
+      if (statsTimer.current !== null) clearInterval(statsTimer.current)
+      pc.current?.close();
+      ws.current?.close();
+    };
+  }, []);
+
+  
+
+  return (
+    <>
+      <video ref={localRef}  style={{ width: 300 }} autoPlay playsInline />
+      <video ref={remoteRef} style={{ width: 300 }} playsInline />
     </>
+  );
 }

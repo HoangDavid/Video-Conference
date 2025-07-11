@@ -25,9 +25,6 @@ func NewPeer(ctx context.Context, stream sfu.SFU_SignalServer, stuns []string) *
 		},
 	})
 
-	pc.AddTransceiverFromKind(webrtc.RTPCodecTypeVideo)
-	pc.AddTransceiverFromKind(webrtc.RTPCodecTypeAudio)
-
 	done := make(chan struct{})
 	// TODO: on network failure
 	pc.OnICECandidate(
@@ -56,52 +53,38 @@ func NewPeer(ctx context.Context, stream sfu.SFU_SignalServer, stuns []string) *
 		},
 	)
 
+	videoT, _ := pc.AddTransceiverFromKind(webrtc.RTPCodecTypeVideo)
+	audioT, _ := pc.AddTransceiverFromKind(webrtc.RTPCodecTypeAudio)
+
 	pc.OnTrack(func(remote *webrtc.TrackRemote, recv *webrtc.RTPReceiver) {
 		log.Info(fmt.Sprintf("🔄 got %s – echoing back", remote.Kind()))
 
-		local, err := webrtc.NewTrackLocalStaticRTP(
+		local, _ := webrtc.NewTrackLocalStaticRTP(
 			remote.Codec().RTPCodecCapability,
 			remote.ID()+"-loop",
 			"pion",
 		)
-		if err != nil {
-			log.Error(fmt.Sprintf("track create: %v", err))
-			return
-		}
 
-		sender, err := pc.AddTrack(local)
-		if err != nil {
-			log.Error(fmt.Sprintf("addTrack: %v", err))
-			return
+		switch remote.Kind() {
+		case webrtc.RTPCodecTypeVideo:
+			_ = videoT.Sender().ReplaceTrack(local)
+		case webrtc.RTPCodecTypeAudio:
+			_ = audioT.Sender().ReplaceTrack(local)
 		}
 
 		go func() {
 			for {
-				// Grab one full RTP packet from the incoming track.
-				pkt, _, err := remote.ReadRTP() // ★ ReadRTP gives *rtp.Packet
+				pkt, _, err := remote.ReadRTP()
 				if err != nil {
-					log.Error("can't read rtp")
+					log.Error("unable to read RTP")
 					return
 				}
-
-				if writeErr := local.WriteRTP(pkt); writeErr != nil {
-					log.Error("write failed")
-					return
-				}
-			}
-		}()
-
-		go func() {
-			rtcpBuf := make([]byte, 1500)
-			for {
-				if _, _, err := sender.Read(rtcpBuf); err != nil {
-					return
-				}
-
-				log.Info("got RTCP for video")
+				_ = local.WriteRTP(pkt)
 			}
 		}()
 	})
+
+	// TODO: renegotiation for subtitles and dubbing
 
 	return &Peer{
 		Peer: &domain.Peer{

@@ -6,6 +6,7 @@ export interface Signal{
 
 export interface Ice {
     candidate: string
-    sdpMid?: string
-    sdpMLineIndex?: number
+    sdpMid: string 
+	sdpMLineIndex: number
+	usernameFragmment: string
 }
