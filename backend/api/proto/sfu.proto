@@ -5,17 +5,44 @@ package SFU;
 option go_package="api/proto/";
 
 enum SdpType {
-    SDP_TYPE_UNSPECIFIED = 0;
-    OFFER = 1;
-    ANSWER = 2;
+    OFFER = 0;
+    ANSWER = 1;
+}
+
+enum ActionType {
+    JOIN = 0;
+    LEAVE = 1;
+    AUDIO = 2;
+    VIDEO = 3;
+    SUB = 4;
+    DUB = 5;
+}
+
+// Event Type
+enum EventType {
+    START_ROOM_EVENT = 0;
+    END_ROOM_EVENT = 1;
+    JOIN_EVENT = 2;
+    LEAVE_EVENT = 3;
+    AUDIO_ON = 4;
+    AUDIO_OFF = 5;
+    VIDEO_ON = 6;
+    VIDEO_OFF = 7;
+}
+
+// Action
+message Action {
+    ActionType type = 1;
+    bool toggle = 2;
 }
 
 // Session Description (SDP)
-message SDP {
+message Sdp {
     SdpType type = 1;
     string sdp = 2;
 }
 
+//  Ice Candidate
 message IceCandidate {
     string candidate = 1;
     string sdp_mid = 2;
@@ -23,12 +50,15 @@ message IceCandidate {
     string username_fragment = 4;
 }
 
-// TODO: mute A/V, join/leave, etc
-
 message PeerSignal {
-  oneof payload {
-    SDP sdp = 1;
-    IceCandidate       ice = 2;
+    string room_id = 100;
+    string peer_id = 101;
+
+    oneof payload {
+        Sdp sdp = 1;
+        IceCandidate ice = 2;
+        Action action = 3;
+        EventType event = 4;
   }
 }
 

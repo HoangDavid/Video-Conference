@@ -36,7 +36,7 @@ func Execute() {
 	mongox.Init(os.Getenv("MONGODB_URI"), os.Getenv("DB_NAME"), 10)
 	redisx.Init(os.Getenv("REDIS_URI"), os.Getenv("REDIS_PASSWORD"), 0)
 
-	// Fire a gRPC connection between signaling and sfu
+	// fire a gRPC connection between signaling and sfu
 	sfuConn, err := grpc.Dial("localhost"+os.Getenv("SFU_PORT"), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatal(err)

@@ -5,6 +5,7 @@ import (
 	"net"
 	"os"
 	sfu "vidcall/api/proto"
+	"vidcall/internal/sfu/service/hub"
 	"vidcall/internal/sfu/transport"
 
 	_ "github.com/joho/godotenv/autoload"
@@ -13,6 +14,10 @@ import (
 
 func Execute() {
 	// TODO: add TLS for security + certs
+
+	// initialize a hub
+	hub.Init()
+
 	port := os.Getenv("SFU_PORT")
 	lis, err := net.Listen("tcp", port)
 	if err != nil {

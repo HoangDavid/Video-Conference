@@ -118,7 +118,7 @@ func onSendSFU(ctx context.Context, conn *websocket.Conn, stream sfu.SFU_SignalC
 			}
 			if err := stream.Send(&sfu.PeerSignal{
 				Payload: &sfu.PeerSignal_Sdp{
-					Sdp: &sfu.SDP{
+					Sdp: &sfu.Sdp{
 						Type: sfu.SdpType_OFFER,
 						Sdp:  offer.SDP,
 					},
@@ -134,7 +134,7 @@ func onSendSFU(ctx context.Context, conn *websocket.Conn, stream sfu.SFU_SignalC
 			}
 			if err := stream.Send(&sfu.PeerSignal{
 				Payload: &sfu.PeerSignal_Sdp{
-					Sdp: &sfu.SDP{
+					Sdp: &sfu.Sdp{
 						Type: sfu.SdpType_OFFER,
 						Sdp:  answer.SDP,
 					},
