@@ -74,7 +74,8 @@ func NewSubscriber(sendQ chan *sfu.PeerSignal, stuns []string, log *slog.Logger,
 			IdleVideos:   idleVideos,
 			Dub:          dub,
 			Sub:          sub,
-			ActiveTracks: make(map[*webrtc.TrackLocalStaticRTP]*webrtc.RTPTransceiver),
+			ActiveAudios: make(map[string]*webrtc.RTPTransceiver),
+			ActiveVideos: make(map[string]*webrtc.RTPTransceiver),
 		},
 		conn:      c,
 		log:       log,
@@ -94,7 +95,7 @@ func (s *Subscriber) HandleRemoteIceCandidate(ice *sfu.PeerSignal_Ice) error {
 	return nil
 }
 
-func (s *Subscriber) HandleAnswer(sdp string) error {
+func (s *Subscriber) HandleAnswer(sdp *sfu.PeerSignal_Sdp) error {
 	if err := s.conn.handleAnswer(sdp); err != nil {
 		return err
 	}
@@ -102,8 +103,58 @@ func (s *Subscriber) HandleAnswer(sdp string) error {
 	return nil
 }
 
+func (s *Subscriber) SubscribeRoom(ownerID string, room *domain.Room) error {
+	room.Mu.Lock()
+	defer room.Mu.Unlock()
+
+	for id, peer := range room.Peers {
+		if ownerID == id {
+			continue
+		}
+
+		if err := s.subscribe(peer); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (s *Subscriber) SubscribePeer(peer *domain.Peer) error {
+	if err := s.subscribe(peer); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Subscriber) UnsubscribeRoom(ownerID string, room *domain.Room) error {
+	room.Mu.Lock()
+	defer room.Mu.Unlock()
+
+	for id, peer := range room.Peers {
+		if ownerID == id {
+			continue
+		}
+
+		if err := s.unsubscribe(peer.ID); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (s *Subscriber) UnsubscribePeer(peerID string) error {
+	if err := s.unsubscribe(peerID); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // subscribe to remote peer track
-func (s *Subscriber) Subcribe(pub domain.Publisher) error {
+func (s *Subscriber) subscribe(peer *domain.Peer) error {
 
 	var audioT *webrtc.RTPTransceiver
 	var videoT *webrtc.RTPTransceiver
@@ -135,21 +186,21 @@ func (s *Subscriber) Subcribe(pub domain.Publisher) error {
 	}
 
 	// attach track dynamically
-	go s.attachTrack(pub.LocalAudio, audioT)
-	go s.attachTrack(pub.LocalVideo, videoT)
+	go s.attachTrack(peer.ID, peer.Publisher.LocalAudio, audioT)
+	go s.attachTrack(peer.ID, peer.Publisher.LocalVideo, videoT)
 
 	return nil
 
 }
 
 // Unsubcribe to remote peers track
-func (s *Subscriber) Unsubscribe(pub domain.Publisher) error {
+func (s *Subscriber) unsubscribe(peerID string) error {
 	var audioT *webrtc.RTPTransceiver
 	var videoT *webrtc.RTPTransceiver
 
 	s.Mu.Lock()
-	audioT = s.ActiveTracks[pub.LocalAudio]
-	videoT = s.ActiveTracks[pub.LocalVideo]
+	audioT = s.ActiveAudios[peerID]
+	videoT = s.ActiveVideos[peerID]
 	s.Mu.Unlock()
 
 	if audioT != nil {
@@ -167,16 +218,8 @@ func (s *Subscriber) Unsubscribe(pub domain.Publisher) error {
 	}
 
 	// update active and idle map
-	s.Mu.Lock()
-	if audioT != nil {
-		s.IdleAudios = append(s.IdleAudios, audioT)
-		delete(s.ActiveTracks, pub.LocalAudio)
-	}
-	if videoT != nil {
-		s.IdleVideos = append(s.IdleVideos, videoT)
-		delete(s.ActiveTracks, pub.LocalVideo)
-	}
-	s.Mu.Unlock()
+	go s.detachTrack(peerID, audioT)
+	go s.detachTrack(peerID, videoT)
 
 	return nil
 }
@@ -191,14 +234,14 @@ func (s *Subscriber) pop(tl []*webrtc.RTPTransceiver) (*webrtc.RTPTransceiver, [
 }
 
 // attach track when pc connection is stable
-func (s *Subscriber) attachTrack(local *webrtc.TrackLocalStaticRTP, tx *webrtc.RTPTransceiver) error {
+func (s *Subscriber) attachTrack(peerID string, local *webrtc.TrackLocalStaticRTP, tx *webrtc.RTPTransceiver) error {
 
 	if local == nil || tx == nil {
 		return nil
 	}
 
 	for {
-		if s.PC.SignalingState() == webrtc.SignalingStateStable && tx.Mid() != "" {
+		if s.PC.SignalingState() == webrtc.SignalingStateStable {
 			break
 		}
 		time.Sleep(10 * time.Millisecond)
@@ -211,11 +254,47 @@ func (s *Subscriber) attachTrack(local *webrtc.TrackLocalStaticRTP, tx *webrtc.R
 	}
 
 	s.Mu.Lock()
-	s.ActiveTracks[local] = tx
+	switch tx.Kind() {
+	case webrtc.RTPCodecTypeAudio:
+		s.ActiveAudios[peerID] = tx
+	case webrtc.RTPCodecTypeVideo:
+		s.ActiveVideos[peerID] = tx
+	}
 	s.Mu.Unlock()
 
 	return nil
+}
 
+func (s *Subscriber) detachTrack(peerID string, tx *webrtc.RTPTransceiver) error {
+	if tx == nil {
+		return nil
+	}
+
+	for {
+		if s.PC.SignalingState() == webrtc.SignalingStateStable {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	if err := tx.Sender().ReplaceTrack(nil); err != nil {
+		s.log.Error("unable to detach track")
+		return err
+
+	}
+
+	s.Mu.Lock()
+	switch tx.Kind() {
+	case webrtc.RTPCodecTypeAudio:
+		s.IdleAudios = append(s.IdleAudios, tx)
+		delete(s.ActiveAudios, peerID)
+	case webrtc.RTPCodecTypeVideo:
+		s.IdleVideos = append(s.IdleVideos, tx)
+		delete(s.ActiveVideos, peerID)
+	}
+	s.Mu.Unlock()
+
+	return nil
 }
 
 func (s *Subscriber) WireCallBacks() {

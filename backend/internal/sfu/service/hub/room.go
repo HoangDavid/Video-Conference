@@ -1,6 +1,9 @@
 package hub
 
-import "vidcall/internal/sfu/domain"
+import (
+	sfu "vidcall/api/proto"
+	"vidcall/internal/sfu/domain"
+)
 
 func NewRoom(roomID string) {
 	room := domain.Room{
@@ -29,4 +32,16 @@ func RemovePeer(roomID string, peer *domain.Peer) {
 	room.Mu.Lock()
 	delete(room.Peers, peer.ID)
 	room.Mu.Unlock()
+}
+
+func BroadCast(ownerID string, roomID string, event *sfu.PeerSignal) {
+	room := GetRoom(roomID)
+
+	for id, peer := range room.Peers {
+		if id == ownerID {
+			continue
+		}
+
+		peer.EventQ <- event
+	}
 }

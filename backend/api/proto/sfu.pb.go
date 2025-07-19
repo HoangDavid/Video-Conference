@@ -70,31 +70,37 @@ func (SdpType) EnumDescriptor() ([]byte, []int) {
 type ActionType int32
 
 const (
-	ActionType_JOIN     ActionType = 0
-	ActionType_LEAVE    ActionType = 1
-	ActionType_AUDIO    ActionType = 2
-	ActionType_VIDEO    ActionType = 3
-	ActionType_SUBTITLE ActionType = 4
-	ActionType_DUB      ActionType = 5
+	ActionType_START_ROOM ActionType = 0
+	ActionType_END_ROOM   ActionType = 1
+	ActionType_JOIN       ActionType = 2
+	ActionType_LEAVE      ActionType = 3
+	ActionType_AUDIO      ActionType = 4
+	ActionType_VIDEO      ActionType = 5
+	ActionType_SUBTITLE   ActionType = 6
+	ActionType_DUB        ActionType = 7
 )
 
 // Enum value maps for ActionType.
 var (
 	ActionType_name = map[int32]string{
-		0: "JOIN",
-		1: "LEAVE",
-		2: "AUDIO",
-		3: "VIDEO",
-		4: "SUBTITLE",
-		5: "DUB",
+		0: "START_ROOM",
+		1: "END_ROOM",
+		2: "JOIN",
+		3: "LEAVE",
+		4: "AUDIO",
+		5: "VIDEO",
+		6: "SUBTITLE",
+		7: "DUB",
 	}
 	ActionType_value = map[string]int32{
-		"JOIN":     0,
-		"LEAVE":    1,
-		"AUDIO":    2,
-		"VIDEO":    3,
-		"SUBTITLE": 4,
-		"DUB":      5,
+		"START_ROOM": 0,
+		"END_ROOM":   1,
+		"JOIN":       2,
+		"LEAVE":      3,
+		"AUDIO":      4,
+		"VIDEO":      5,
+		"SUBTITLE":   6,
+		"DUB":        7,
 	}
 )
 
@@ -129,21 +135,21 @@ func (ActionType) EnumDescriptor() ([]byte, []int) {
 type EventType int32
 
 const (
-	EventType_START_ROOM_EVENT EventType = 0
-	EventType_END_ROOM_EVENT   EventType = 1
-	EventType_JOIN_EVENT       EventType = 2
-	EventType_LEAVE_EVENT      EventType = 3
-	EventType_AUDIO_ON         EventType = 4
-	EventType_AUDIO_OFF        EventType = 5
-	EventType_VIDEO_ON         EventType = 6
-	EventType_VIDEO_OFF        EventType = 7
+	EventType_ROOM_ACTIVE   EventType = 0
+	EventType_ROOM_INACTIVE EventType = 1
+	EventType_JOIN_EVENT    EventType = 2
+	EventType_LEAVE_EVENT   EventType = 3
+	EventType_AUDIO_ON      EventType = 4
+	EventType_AUDIO_OFF     EventType = 5
+	EventType_VIDEO_ON      EventType = 6
+	EventType_VIDEO_OFF     EventType = 7
 )
 
 // Enum value maps for EventType.
 var (
 	EventType_name = map[int32]string{
-		0: "START_ROOM_EVENT",
-		1: "END_ROOM_EVENT",
+		0: "ROOM_ACTIVE",
+		1: "ROOM_INACTIVE",
 		2: "JOIN_EVENT",
 		3: "LEAVE_EVENT",
 		4: "AUDIO_ON",
@@ -152,14 +158,14 @@ var (
 		7: "VIDEO_OFF",
 	}
 	EventType_value = map[string]int32{
-		"START_ROOM_EVENT": 0,
-		"END_ROOM_EVENT":   1,
-		"JOIN_EVENT":       2,
-		"LEAVE_EVENT":      3,
-		"AUDIO_ON":         4,
-		"AUDIO_OFF":        5,
-		"VIDEO_ON":         6,
-		"VIDEO_OFF":        7,
+		"ROOM_ACTIVE":   0,
+		"ROOM_INACTIVE": 1,
+		"JOIN_EVENT":    2,
+		"LEAVE_EVENT":   3,
+		"AUDIO_ON":      4,
+		"AUDIO_OFF":     5,
+		"VIDEO_ON":      6,
+		"VIDEO_OFF":     7,
 	}
 )
 
@@ -283,7 +289,7 @@ func (x *Action) GetType() ActionType {
 	if x != nil {
 		return x.Type
 	}
-	return ActionType_JOIN
+	return ActionType_START_ROOM
 }
 
 func (x *Action) GetToggle() bool {
@@ -530,7 +536,7 @@ func (x *PeerSignal) GetEvent() EventType {
 			return x.Event
 		}
 	}
-	return EventType_START_ROOM_EVENT
+	return EventType_ROOM_ACTIVE
 }
 
 type isPeerSignal_Payload interface {
@@ -591,18 +597,21 @@ const file_api_proto_sfu_proto_rawDesc = "" +
 	"\aSdpType\x12\t\n" +
 	"\x05OFFER\x10\x00\x12\n" +
 	"\n" +
-	"\x06ANSWER\x10\x01*N\n" +
+	"\x06ANSWER\x10\x01*l\n" +
 	"\n" +
-	"ActionType\x12\b\n" +
-	"\x04JOIN\x10\x00\x12\t\n" +
-	"\x05LEAVE\x10\x01\x12\t\n" +
-	"\x05AUDIO\x10\x02\x12\t\n" +
-	"\x05VIDEO\x10\x03\x12\f\n" +
-	"\bSUBTITLE\x10\x04\x12\a\n" +
-	"\x03DUB\x10\x05*\x90\x01\n" +
-	"\tEventType\x12\x14\n" +
-	"\x10START_ROOM_EVENT\x10\x00\x12\x12\n" +
-	"\x0eEND_ROOM_EVENT\x10\x01\x12\x0e\n" +
+	"ActionType\x12\x0e\n" +
+	"\n" +
+	"START_ROOM\x10\x00\x12\f\n" +
+	"\bEND_ROOM\x10\x01\x12\b\n" +
+	"\x04JOIN\x10\x02\x12\t\n" +
+	"\x05LEAVE\x10\x03\x12\t\n" +
+	"\x05AUDIO\x10\x04\x12\t\n" +
+	"\x05VIDEO\x10\x05\x12\f\n" +
+	"\bSUBTITLE\x10\x06\x12\a\n" +
+	"\x03DUB\x10\a*\x8a\x01\n" +
+	"\tEventType\x12\x0f\n" +
+	"\vROOM_ACTIVE\x10\x00\x12\x11\n" +
+	"\rROOM_INACTIVE\x10\x01\x12\x0e\n" +
 	"\n" +
 	"JOIN_EVENT\x10\x02\x12\x0f\n" +
 	"\vLEAVE_EVENT\x10\x03\x12\f\n" +

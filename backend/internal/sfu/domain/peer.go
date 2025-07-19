@@ -10,12 +10,14 @@ import (
 
 type Peer struct {
 	ID         string
+	RoomID     string
 	Log        *slog.Logger
 	Stream     sfu.SFU_SignalServer
 	Publisher  *Publisher
 	Subscriber *Subscriber
 
-	SendQ chan *sfu.PeerSignal
+	SendQ  chan *sfu.PeerSignal
+	EventQ chan *sfu.PeerSignal
 }
 
 type Publisher struct {
@@ -25,11 +27,13 @@ type Publisher struct {
 }
 
 type Subscriber struct {
-	Mu           sync.RWMutex
-	PC           *webrtc.PeerConnection
-	IdleAudios   []*webrtc.RTPTransceiver
-	IdleVideos   []*webrtc.RTPTransceiver
-	Dub          *webrtc.RTPTransceiver
-	Sub          *webrtc.DataChannel
-	ActiveTracks map[*webrtc.TrackLocalStaticRTP]*webrtc.RTPTransceiver
+	Mu         sync.RWMutex
+	PC         *webrtc.PeerConnection
+	IdleAudios []*webrtc.RTPTransceiver
+	IdleVideos []*webrtc.RTPTransceiver
+	Dub        *webrtc.RTPTransceiver
+	Sub        *webrtc.DataChannel
+
+	ActiveVideos map[string]*webrtc.RTPTransceiver
+	ActiveAudios map[string]*webrtc.RTPTransceiver
 }

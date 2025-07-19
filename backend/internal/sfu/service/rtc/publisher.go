@@ -33,7 +33,7 @@ func NewPublisher(sendQ chan *sfu.PeerSignal, stuns []string, log *slog.Logger, 
 
 }
 
-func (p *Publisher) HandleOffer(sdp string) error {
+func (p *Publisher) HandleOffer(sdp *sfu.PeerSignal_Sdp) error {
 	if err := p.conn.handleOffer(sdp); err != nil {
 		return err
 	}

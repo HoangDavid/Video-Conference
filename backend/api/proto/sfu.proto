@@ -10,18 +10,20 @@ enum SdpType {
 }
 
 enum ActionType {
-    JOIN = 0;
-    LEAVE = 1;
-    AUDIO = 2;
-    VIDEO = 3;
-    SUBTITLE = 4;
-    DUB = 5;
+    START_ROOM = 0;
+    END_ROOM = 1;
+    JOIN = 2;
+    LEAVE = 3;
+    AUDIO = 4;
+    VIDEO = 5;
+    SUBTITLE = 6;
+    DUB = 7;
 }
 
 // Event Type
 enum EventType {
-    START_ROOM_EVENT = 0;
-    END_ROOM_EVENT = 1;
+    ROOM_ACTIVE = 0;
+    ROOM_INACTIVE = 1;
     JOIN_EVENT = 2;
     LEAVE_EVENT = 3;
     AUDIO_ON = 4;

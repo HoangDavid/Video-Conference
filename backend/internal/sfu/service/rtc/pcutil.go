@@ -91,10 +91,10 @@ func (c *conn) handleLocalIceCandidate(candidate *webrtc.ICECandidate) {
 }
 
 // handle offer from client
-func (c *conn) handleOffer(sdp string) error {
+func (c *conn) handleOffer(sdp *sfu.PeerSignal_Sdp) error {
 	offer := webrtc.SessionDescription{
 		Type: webrtc.SDPTypeOffer,
-		SDP:  sdp,
+		SDP:  sdp.Sdp.Sdp,
 	}
 
 	// Set remote description
@@ -134,10 +134,10 @@ func (c *conn) handleOffer(sdp string) error {
 }
 
 // handle answer from client
-func (c *conn) handleAnswer(sdp string) error {
+func (c *conn) handleAnswer(sdp *sfu.PeerSignal_Sdp) error {
 	answer := webrtc.SessionDescription{
 		Type: webrtc.SDPTypeAnswer,
-		SDP:  sdp,
+		SDP:  sdp.Sdp.Sdp,
 	}
 
 	// Set Remote Description
