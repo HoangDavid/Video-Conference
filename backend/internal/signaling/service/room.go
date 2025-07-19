@@ -5,10 +5,8 @@ import (
 	"time"
 
 	"vidcall/internal/signaling/domain"
-	"vidcall/internal/signaling/infra/mongox"
-	"vidcall/internal/signaling/infra/redisx"
-	"vidcall/internal/signaling/repo/mongorepo"
-	"vidcall/internal/signaling/repo/redisrepo"
+	"vidcall/internal/signaling/infra"
+	"vidcall/internal/signaling/repo"
 	"vidcall/internal/signaling/security"
 	"vidcall/pkg/logger"
 	"vidcall/pkg/utils"
@@ -31,8 +29,8 @@ func NewRoom(ctx context.Context, duration time.Duration, name string) (*domain.
 	}
 
 	// Save room data
-	db := mongox.DB()
-	if err := mongorepo.CreateRoomDoc(ctx, db, room); err != nil {
+	db := infra.DB()
+	if err := repo.CreateRoomDoc(ctx, db, room); err != nil {
 		return nil, "", err
 	}
 
@@ -53,7 +51,7 @@ func NewRoom(ctx context.Context, duration time.Duration, name string) (*domain.
 
 func StartRoom(ctx context.Context) error {
 
-	log := logger.GetLog(ctx).With("layer", "service")
+	// log := logger.GetLog(ctx).With("layer", "service")
 
 	// Check for member role
 	claims := security.ClaimsFrom(ctx)
@@ -61,22 +59,6 @@ func StartRoom(ctx context.Context) error {
 	if role != "host" {
 		return domain.ErrForbidden
 	}
-
-	// Create room and add member
-	c := redisx.C()
-	roomID := claims.RoomID
-	memeberID := claims.Subject
-
-	if err := redisrepo.CreateRoom(ctx, c, roomID); err != nil {
-		return err
-	}
-
-	if err := redisrepo.AddMember(ctx, c, roomID, memeberID); err != nil {
-		return err
-	}
-
-	log = log.With("roomID", roomID)
-	log.Info("room is live")
 
 	return nil
 }
@@ -87,13 +69,6 @@ func JoinRoom(ctx context.Context) error {
 
 	claims := security.ClaimsFrom(ctx)
 	roomID := claims.RoomID
-	memberID := claims.Subject
-	c := redisx.C()
-
-	if err := redisrepo.AddMember(ctx, c, roomID, memberID); err != nil {
-		return err
-	}
-
 	log = log.With("roomID", roomID)
 	log.Info("a member joined")
 

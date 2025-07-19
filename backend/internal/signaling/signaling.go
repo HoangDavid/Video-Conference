@@ -7,8 +7,7 @@ import (
 	"os"
 
 	sfu "vidcall/api/proto"
-	"vidcall/internal/signaling/infra/mongox"
-	"vidcall/internal/signaling/infra/redisx"
+	"vidcall/internal/signaling/infra"
 	"vidcall/internal/signaling/security"
 	"vidcall/internal/signaling/transport"
 	"vidcall/pkg/logger"
@@ -33,8 +32,7 @@ func Execute() {
 	}
 
 	// Fire up infra: MongoDB and Redis
-	mongox.Init(os.Getenv("MONGODB_URI"), os.Getenv("DB_NAME"), 10)
-	redisx.Init(os.Getenv("REDIS_URI"), os.Getenv("REDIS_PASSWORD"), 0)
+	infra.Init(os.Getenv("MONGODB_URI"), os.Getenv("DB_NAME"), 10)
 
 	// fire a gRPC connection between signaling and sfu
 	sfuConn, err := grpc.Dial("localhost"+os.Getenv("SFU_PORT"), grpc.WithTransportCredentials(insecure.NewCredentials()))

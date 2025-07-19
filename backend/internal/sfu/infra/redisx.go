@@ -1,4 +1,4 @@
-package redisx
+package infra
 
 import (
 	"context"

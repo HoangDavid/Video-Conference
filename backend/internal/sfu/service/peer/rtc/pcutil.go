@@ -11,7 +11,7 @@ import (
 
 type conn struct {
 	pc            *webrtc.PeerConnection
-	stream        sfu.SFU_SignalServer
+	sendQ         chan *sfu.PeerSignal
 	iceBuffers    chan webrtc.ICECandidateInit
 	log           *slog.Logger
 	debounceTimer *debounceTimer
@@ -24,7 +24,7 @@ type debounceTimer struct {
 }
 
 // create new peer connection
-func newPeerConnection(stream sfu.SFU_SignalServer, stuns []string, log *slog.Logger, debounceInterval time.Duration) (*conn, error) {
+func newPeerConnection(sendQ chan *sfu.PeerSignal, stuns []string, log *slog.Logger, debounceInterval time.Duration) (*conn, error) {
 	pc, err := webrtc.NewPeerConnection(webrtc.Configuration{
 		ICEServers: []webrtc.ICEServer{
 			{URLs: stuns},
@@ -38,7 +38,7 @@ func newPeerConnection(stream sfu.SFU_SignalServer, stuns []string, log *slog.Lo
 
 	return &conn{
 		pc:         pc,
-		stream:     stream,
+		sendQ:      sendQ,
 		iceBuffers: make(chan webrtc.ICECandidateInit),
 		log:        log,
 		debounceTimer: &debounceTimer{
@@ -87,12 +87,7 @@ func (c *conn) handleLocalIceCandidate(candidate *webrtc.ICECandidate) {
 		},
 	}
 
-	go func() {
-		if err := c.stream.Send(req); err != nil {
-			c.log.Error("unable to send ice")
-			return
-		}
-	}()
+	c.sendQ <- req
 }
 
 // handle offer from client
@@ -133,10 +128,7 @@ func (c *conn) handleOffer(sdp string) error {
 		},
 	}
 
-	if err := c.stream.Send(res); err != nil {
-		c.log.Error("unable to send answer sdp to stream")
-		return err
-	}
+	c.sendQ <- res
 
 	return nil
 }
@@ -174,6 +166,7 @@ func (c *conn) flushIce() {
 	}
 }
 
+// Rengegotiation with debounce
 func (c *conn) handleNegotiationNeeded() {
 	dt := c.debounceTimer
 
@@ -197,6 +190,10 @@ func (c *conn) renegotiate() {
 		return
 	}
 
+	c.sendOffer()
+}
+
+func (c *conn) sendOffer() {
 	offer, err := c.pc.CreateOffer(nil)
 	if err != nil {
 		c.log.Error("unable to create offer")
@@ -216,11 +213,5 @@ func (c *conn) renegotiate() {
 		},
 	}
 
-	go func() {
-		if err := c.stream.Send(r); err != nil {
-
-			return
-		}
-	}()
-
+	c.sendQ <- r
 }

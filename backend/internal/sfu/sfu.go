@@ -5,7 +5,7 @@ import (
 	"net"
 	"os"
 	sfu "vidcall/api/proto"
-	"vidcall/internal/sfu/service/hub"
+	"vidcall/internal/sfu/infra"
 	"vidcall/internal/sfu/transport"
 
 	_ "github.com/joho/godotenv/autoload"
@@ -15,8 +15,10 @@ import (
 func Execute() {
 	// TODO: add TLS for security + certs
 
-	// initialize a hub
-	hub.Init()
+	addr := os.Getenv("REDIS_URI")
+	pass := os.Getenv("REDIS_PASSWORD")
+	// Fire up Redis
+	infra.Init(addr, pass, 0)
 
 	port := os.Getenv("SFU_PORT")
 	lis, err := net.Listen("tcp", port)

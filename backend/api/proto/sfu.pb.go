@@ -70,12 +70,12 @@ func (SdpType) EnumDescriptor() ([]byte, []int) {
 type ActionType int32
 
 const (
-	ActionType_JOIN  ActionType = 0
-	ActionType_LEAVE ActionType = 1
-	ActionType_AUDIO ActionType = 2
-	ActionType_VIDEO ActionType = 3
-	ActionType_SUB   ActionType = 4
-	ActionType_DUB   ActionType = 5
+	ActionType_JOIN     ActionType = 0
+	ActionType_LEAVE    ActionType = 1
+	ActionType_AUDIO    ActionType = 2
+	ActionType_VIDEO    ActionType = 3
+	ActionType_SUBTITLE ActionType = 4
+	ActionType_DUB      ActionType = 5
 )
 
 // Enum value maps for ActionType.
@@ -85,16 +85,16 @@ var (
 		1: "LEAVE",
 		2: "AUDIO",
 		3: "VIDEO",
-		4: "SUB",
+		4: "SUBTITLE",
 		5: "DUB",
 	}
 	ActionType_value = map[string]int32{
-		"JOIN":  0,
-		"LEAVE": 1,
-		"AUDIO": 2,
-		"VIDEO": 3,
-		"SUB":   4,
-		"DUB":   5,
+		"JOIN":     0,
+		"LEAVE":    1,
+		"AUDIO":    2,
+		"VIDEO":    3,
+		"SUBTITLE": 4,
+		"DUB":      5,
 	}
 )
 
@@ -190,6 +190,56 @@ func (EventType) EnumDescriptor() ([]byte, []int) {
 	return file_api_proto_sfu_proto_rawDescGZIP(), []int{2}
 }
 
+// Peer Connection Type
+type PcType int32
+
+const (
+	PcType_PC_UNSPECIFIED PcType = 0
+	PcType_PUB            PcType = 1
+	PcType_SUB            PcType = 2
+)
+
+// Enum value maps for PcType.
+var (
+	PcType_name = map[int32]string{
+		0: "PC_UNSPECIFIED",
+		1: "PUB",
+		2: "SUB",
+	}
+	PcType_value = map[string]int32{
+		"PC_UNSPECIFIED": 0,
+		"PUB":            1,
+		"SUB":            2,
+	}
+)
+
+func (x PcType) Enum() *PcType {
+	p := new(PcType)
+	*p = x
+	return p
+}
+
+func (x PcType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (PcType) Descriptor() protoreflect.EnumDescriptor {
+	return file_api_proto_sfu_proto_enumTypes[3].Descriptor()
+}
+
+func (PcType) Type() protoreflect.EnumType {
+	return &file_api_proto_sfu_proto_enumTypes[3]
+}
+
+func (x PcType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use PcType.Descriptor instead.
+func (PcType) EnumDescriptor() ([]byte, []int) {
+	return file_api_proto_sfu_proto_rawDescGZIP(), []int{3}
+}
+
 // Action
 type Action struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -246,8 +296,9 @@ func (x *Action) GetToggle() bool {
 // Session Description (SDP)
 type Sdp struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Type          SdpType                `protobuf:"varint,1,opt,name=type,proto3,enum=SFU.SdpType" json:"type,omitempty"`
-	Sdp           string                 `protobuf:"bytes,2,opt,name=sdp,proto3" json:"sdp,omitempty"`
+	Pc            PcType                 `protobuf:"varint,1,opt,name=pc,proto3,enum=SFU.PcType" json:"pc,omitempty"`
+	Type          SdpType                `protobuf:"varint,2,opt,name=type,proto3,enum=SFU.SdpType" json:"type,omitempty"`
+	Sdp           string                 `protobuf:"bytes,3,opt,name=sdp,proto3" json:"sdp,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -282,6 +333,13 @@ func (*Sdp) Descriptor() ([]byte, []int) {
 	return file_api_proto_sfu_proto_rawDescGZIP(), []int{1}
 }
 
+func (x *Sdp) GetPc() PcType {
+	if x != nil {
+		return x.Pc
+	}
+	return PcType_PC_UNSPECIFIED
+}
+
 func (x *Sdp) GetType() SdpType {
 	if x != nil {
 		return x.Type
@@ -299,10 +357,11 @@ func (x *Sdp) GetSdp() string {
 // Ice Candidate
 type IceCandidate struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
-	Candidate        string                 `protobuf:"bytes,1,opt,name=candidate,proto3" json:"candidate,omitempty"`
-	SdpMid           string                 `protobuf:"bytes,2,opt,name=sdp_mid,json=sdpMid,proto3" json:"sdp_mid,omitempty"`
-	SdpMlineIndex    uint32                 `protobuf:"varint,3,opt,name=sdp_mline_index,json=sdpMlineIndex,proto3" json:"sdp_mline_index,omitempty"`
-	UsernameFragment string                 `protobuf:"bytes,4,opt,name=username_fragment,json=usernameFragment,proto3" json:"username_fragment,omitempty"`
+	Pc               PcType                 `protobuf:"varint,1,opt,name=pc,proto3,enum=SFU.PcType" json:"pc,omitempty"`
+	Candidate        string                 `protobuf:"bytes,2,opt,name=candidate,proto3" json:"candidate,omitempty"`
+	SdpMid           string                 `protobuf:"bytes,3,opt,name=sdp_mid,json=sdpMid,proto3" json:"sdp_mid,omitempty"`
+	SdpMlineIndex    uint32                 `protobuf:"varint,4,opt,name=sdp_mline_index,json=sdpMlineIndex,proto3" json:"sdp_mline_index,omitempty"`
+	UsernameFragment string                 `protobuf:"bytes,5,opt,name=username_fragment,json=usernameFragment,proto3" json:"username_fragment,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
@@ -335,6 +394,13 @@ func (x *IceCandidate) ProtoReflect() protoreflect.Message {
 // Deprecated: Use IceCandidate.ProtoReflect.Descriptor instead.
 func (*IceCandidate) Descriptor() ([]byte, []int) {
 	return file_api_proto_sfu_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *IceCandidate) GetPc() PcType {
+	if x != nil {
+		return x.Pc
+	}
+	return PcType_PC_UNSPECIFIED
 }
 
 func (x *IceCandidate) GetCandidate() string {
@@ -502,15 +568,17 @@ const file_api_proto_sfu_proto_rawDesc = "" +
 	"\x13api/proto/sfu.proto\x12\x03SFU\"E\n" +
 	"\x06Action\x12#\n" +
 	"\x04type\x18\x01 \x01(\x0e2\x0f.SFU.ActionTypeR\x04type\x12\x16\n" +
-	"\x06toggle\x18\x02 \x01(\bR\x06toggle\"9\n" +
-	"\x03Sdp\x12 \n" +
-	"\x04type\x18\x01 \x01(\x0e2\f.SFU.SdpTypeR\x04type\x12\x10\n" +
-	"\x03sdp\x18\x02 \x01(\tR\x03sdp\"\x9a\x01\n" +
-	"\fIceCandidate\x12\x1c\n" +
-	"\tcandidate\x18\x01 \x01(\tR\tcandidate\x12\x17\n" +
-	"\asdp_mid\x18\x02 \x01(\tR\x06sdpMid\x12&\n" +
-	"\x0fsdp_mline_index\x18\x03 \x01(\rR\rsdpMlineIndex\x12+\n" +
-	"\x11username_fragment\x18\x04 \x01(\tR\x10usernameFragment\"\xdd\x01\n" +
+	"\x06toggle\x18\x02 \x01(\bR\x06toggle\"V\n" +
+	"\x03Sdp\x12\x1b\n" +
+	"\x02pc\x18\x01 \x01(\x0e2\v.SFU.PcTypeR\x02pc\x12 \n" +
+	"\x04type\x18\x02 \x01(\x0e2\f.SFU.SdpTypeR\x04type\x12\x10\n" +
+	"\x03sdp\x18\x03 \x01(\tR\x03sdp\"\xb7\x01\n" +
+	"\fIceCandidate\x12\x1b\n" +
+	"\x02pc\x18\x01 \x01(\x0e2\v.SFU.PcTypeR\x02pc\x12\x1c\n" +
+	"\tcandidate\x18\x02 \x01(\tR\tcandidate\x12\x17\n" +
+	"\asdp_mid\x18\x03 \x01(\tR\x06sdpMid\x12&\n" +
+	"\x0fsdp_mline_index\x18\x04 \x01(\rR\rsdpMlineIndex\x12+\n" +
+	"\x11username_fragment\x18\x05 \x01(\tR\x10usernameFragment\"\xdd\x01\n" +
 	"\n" +
 	"PeerSignal\x12\x17\n" +
 	"\aroom_id\x18d \x01(\tR\x06roomId\x12\x17\n" +
@@ -523,14 +591,14 @@ const file_api_proto_sfu_proto_rawDesc = "" +
 	"\aSdpType\x12\t\n" +
 	"\x05OFFER\x10\x00\x12\n" +
 	"\n" +
-	"\x06ANSWER\x10\x01*I\n" +
+	"\x06ANSWER\x10\x01*N\n" +
 	"\n" +
 	"ActionType\x12\b\n" +
 	"\x04JOIN\x10\x00\x12\t\n" +
 	"\x05LEAVE\x10\x01\x12\t\n" +
 	"\x05AUDIO\x10\x02\x12\t\n" +
-	"\x05VIDEO\x10\x03\x12\a\n" +
-	"\x03SUB\x10\x04\x12\a\n" +
+	"\x05VIDEO\x10\x03\x12\f\n" +
+	"\bSUBTITLE\x10\x04\x12\a\n" +
 	"\x03DUB\x10\x05*\x90\x01\n" +
 	"\tEventType\x12\x14\n" +
 	"\x10START_ROOM_EVENT\x10\x00\x12\x12\n" +
@@ -541,7 +609,11 @@ const file_api_proto_sfu_proto_rawDesc = "" +
 	"\bAUDIO_ON\x10\x04\x12\r\n" +
 	"\tAUDIO_OFF\x10\x05\x12\f\n" +
 	"\bVIDEO_ON\x10\x06\x12\r\n" +
-	"\tVIDEO_OFF\x10\a25\n" +
+	"\tVIDEO_OFF\x10\a*.\n" +
+	"\x06PcType\x12\x12\n" +
+	"\x0ePC_UNSPECIFIED\x10\x00\x12\a\n" +
+	"\x03PUB\x10\x01\x12\a\n" +
+	"\x03SUB\x10\x0225\n" +
 	"\x03SFU\x12.\n" +
 	"\x06Signal\x12\x0f.SFU.PeerSignal\x1a\x0f.SFU.PeerSignal(\x010\x01B\fZ\n" +
 	"api/proto/b\x06proto3"
@@ -558,31 +630,34 @@ func file_api_proto_sfu_proto_rawDescGZIP() []byte {
 	return file_api_proto_sfu_proto_rawDescData
 }
 
-var file_api_proto_sfu_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_api_proto_sfu_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
 var file_api_proto_sfu_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_api_proto_sfu_proto_goTypes = []any{
 	(SdpType)(0),         // 0: SFU.SdpType
 	(ActionType)(0),      // 1: SFU.ActionType
 	(EventType)(0),       // 2: SFU.EventType
-	(*Action)(nil),       // 3: SFU.Action
-	(*Sdp)(nil),          // 4: SFU.Sdp
-	(*IceCandidate)(nil), // 5: SFU.IceCandidate
-	(*PeerSignal)(nil),   // 6: SFU.PeerSignal
+	(PcType)(0),          // 3: SFU.PcType
+	(*Action)(nil),       // 4: SFU.Action
+	(*Sdp)(nil),          // 5: SFU.Sdp
+	(*IceCandidate)(nil), // 6: SFU.IceCandidate
+	(*PeerSignal)(nil),   // 7: SFU.PeerSignal
 }
 var file_api_proto_sfu_proto_depIdxs = []int32{
 	1, // 0: SFU.Action.type:type_name -> SFU.ActionType
-	0, // 1: SFU.Sdp.type:type_name -> SFU.SdpType
-	4, // 2: SFU.PeerSignal.sdp:type_name -> SFU.Sdp
-	5, // 3: SFU.PeerSignal.ice:type_name -> SFU.IceCandidate
-	3, // 4: SFU.PeerSignal.action:type_name -> SFU.Action
-	2, // 5: SFU.PeerSignal.event:type_name -> SFU.EventType
-	6, // 6: SFU.SFU.Signal:input_type -> SFU.PeerSignal
-	6, // 7: SFU.SFU.Signal:output_type -> SFU.PeerSignal
-	7, // [7:8] is the sub-list for method output_type
-	6, // [6:7] is the sub-list for method input_type
-	6, // [6:6] is the sub-list for extension type_name
-	6, // [6:6] is the sub-list for extension extendee
-	0, // [0:6] is the sub-list for field type_name
+	3, // 1: SFU.Sdp.pc:type_name -> SFU.PcType
+	0, // 2: SFU.Sdp.type:type_name -> SFU.SdpType
+	3, // 3: SFU.IceCandidate.pc:type_name -> SFU.PcType
+	5, // 4: SFU.PeerSignal.sdp:type_name -> SFU.Sdp
+	6, // 5: SFU.PeerSignal.ice:type_name -> SFU.IceCandidate
+	4, // 6: SFU.PeerSignal.action:type_name -> SFU.Action
+	2, // 7: SFU.PeerSignal.event:type_name -> SFU.EventType
+	7, // 8: SFU.SFU.Signal:input_type -> SFU.PeerSignal
+	7, // 9: SFU.SFU.Signal:output_type -> SFU.PeerSignal
+	9, // [9:10] is the sub-list for method output_type
+	8, // [8:9] is the sub-list for method input_type
+	8, // [8:8] is the sub-list for extension type_name
+	8, // [8:8] is the sub-list for extension extendee
+	0, // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_api_proto_sfu_proto_init() }
@@ -601,7 +676,7 @@ func file_api_proto_sfu_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_proto_sfu_proto_rawDesc), len(file_api_proto_sfu_proto_rawDesc)),
-			NumEnums:      3,
+			NumEnums:      4,
 			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   1,

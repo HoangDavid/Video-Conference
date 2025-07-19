@@ -16,9 +16,9 @@ type Publisher struct {
 }
 
 // Create conncection for client to push media
-func NewPublisher(stream sfu.SFU_SignalServer, stuns []string, log *slog.Logger, debounceInterval time.Duration) (*Publisher, error) {
+func NewPublisher(sendQ chan *sfu.PeerSignal, stuns []string, log *slog.Logger, debounceInterval time.Duration) (*Publisher, error) {
 
-	c, err := newPeerConnection(stream, stuns, log, debounceInterval)
+	c, err := newPeerConnection(sendQ, stuns, log, debounceInterval)
 	if err != nil {
 		return nil, err
 	}
@@ -33,7 +33,6 @@ func NewPublisher(stream sfu.SFU_SignalServer, stuns []string, log *slog.Logger,
 
 }
 
-// handler offer from client
 func (p *Publisher) HandleOffer(sdp string) error {
 	if err := p.conn.handleOffer(sdp); err != nil {
 		return err
@@ -42,9 +41,8 @@ func (p *Publisher) HandleOffer(sdp string) error {
 	return nil
 }
 
-// handle remote ice from client
-func (p *Publisher) HandleRemoteIceCandidate(candidate *sfu.PeerSignal_Ice) error {
-	if err := p.conn.handleRemoteIceCandidate(candidate); err != nil {
+func (p *Publisher) HandleRemoteIceCandidate(ice *sfu.PeerSignal_Ice) error {
+	if err := p.conn.handleRemoteIceCandidate(ice); err != nil {
 		return err
 	}
 

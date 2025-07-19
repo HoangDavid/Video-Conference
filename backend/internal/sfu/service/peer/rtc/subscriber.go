@@ -16,8 +16,8 @@ type Subscriber struct {
 	direction webrtc.RTPTransceiverInit
 }
 
-func NewSubscriber(stream sfu.SFU_SignalServer, stuns []string, log *slog.Logger, poolSize int, debounceInterval time.Duration) (*Subscriber, error) {
-	c, err := newPeerConnection(stream, stuns, log, debounceInterval)
+func NewSubscriber(sendQ chan *sfu.PeerSignal, stuns []string, log *slog.Logger, poolSize int, debounceInterval time.Duration) (*Subscriber, error) {
+	c, err := newPeerConnection(sendQ, stuns, log, debounceInterval)
 
 	if err != nil {
 		return nil, err
@@ -80,11 +80,14 @@ func NewSubscriber(stream sfu.SFU_SignalServer, stuns []string, log *slog.Logger
 		log:       log,
 		direction: direction,
 	}, nil
-
 }
 
-func (s *Subscriber) HandleOffer(sdp string) error {
-	if err := s.conn.handleOffer(sdp); err != nil {
+func (s *Subscriber) SendOffer() {
+	s.conn.sendOffer()
+}
+
+func (s *Subscriber) HandleRemoteIceCandidate(ice *sfu.PeerSignal_Ice) error {
+	if err := s.conn.handleRemoteIceCandidate(ice); err != nil {
 		return err
 	}
 

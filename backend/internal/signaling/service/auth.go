@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 	"vidcall/internal/signaling/domain"
-	"vidcall/internal/signaling/infra/mongox"
-	"vidcall/internal/signaling/repo/mongorepo"
+	mongox "vidcall/internal/signaling/infra"
+	mongorepo "vidcall/internal/signaling/repo"
 	"vidcall/internal/signaling/security"
 	"vidcall/pkg/logger"
 	"vidcall/pkg/utils"
