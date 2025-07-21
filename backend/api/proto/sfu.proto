@@ -41,8 +41,15 @@ enum PcType {
 
 // Action
 message Action {
-    ActionType type = 1;
-    bool toggle = 2;
+    string roomid = 1;
+    string peerid = 2;
+    ActionType type = 3;
+}
+
+message Event {
+    string roomid = 1;
+    string peerid = 2;
+    EventType type = 3;
 }
 
 // Session Description (SDP)
@@ -62,14 +69,11 @@ message IceCandidate {
 }
 
 message PeerSignal {
-    string room_id = 100;
-    string peer_id = 101;
-
     oneof payload {
         Sdp sdp = 1;
         IceCandidate ice = 2;
         Action action = 3;
-        EventType event = 4;
+        Event event = 4;
   }
 }
 

@@ -1,6 +1,7 @@
 package rtc
 
 import (
+	"context"
 	"log/slog"
 	"time"
 	sfu "vidcall/api/proto"
@@ -9,55 +10,106 @@ import (
 	"github.com/pion/webrtc/v3"
 )
 
-type Publisher struct {
-	*domain.Publisher
-	conn *conn
-	log  *slog.Logger
+type PubConn struct {
+	*domain.PubConn
 }
 
 // Create conncection for client to push media
-func NewPublisher(sendQ chan *sfu.PeerSignal, stuns []string, log *slog.Logger, debounceInterval time.Duration) (*Publisher, error) {
+func NewPublisher(ctx context.Context, sendQ chan *sfu.PeerSignal, log *slog.Logger, debounceInterval time.Duration) (domain.Publisher, error) {
 
-	c, err := newPeerConnection(sendQ, stuns, log, debounceInterval)
+	conn, err := NewPConn(sendQ, log, debounceInterval)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Publisher{
-		Publisher: &domain.Publisher{
-			PC: c.pc,
+	pubCtx, pubCancel := context.WithCancel(ctx)
+
+	return &PubConn{
+		PubConn: &domain.PubConn{
+			Conn:    conn,
+			Ctx:     pubCtx,
+			Cancel:  pubCancel,
+			RecvSdp: make(chan *sfu.PeerSignal_Sdp),
+			RecvIce: make(chan *sfu.PeerSignal_Ice),
 		},
-		conn: c,
-		log:  log,
 	}, nil
 
 }
 
-func (p *Publisher) HandleOffer(sdp *sfu.PeerSignal_Sdp) error {
-	if err := p.conn.handleOffer(sdp); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (p *Publisher) HandleRemoteIceCandidate(ice *sfu.PeerSignal_Ice) error {
-	if err := p.conn.handleRemoteIceCandidate(ice); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // set up pc callbacks
-func (p *Publisher) WireCallBacks() {
-	p.PC.OnICECandidate(p.conn.handleLocalIceCandidate)
-	p.PC.OnNegotiationNeeded(nil)
-	p.PC.OnTrack(p.handleOnTrack)
+func (p *PubConn) WireCallBacks() {
+	pc := p.Conn.GetPC()
+	pc.OnICECandidate(p.Conn.HandleLocalIce)
+	pc.OnNegotiationNeeded(nil)
+	pc.OnTrack(p.handleOnTrack)
+}
+
+func (p *PubConn) Connect() error {
+
+	for {
+		select {
+		case <-p.Ctx.Done():
+			return nil
+
+		case sdp, ok := <-p.RecvSdp:
+			if !ok {
+				return nil
+			}
+
+			if sdp.Sdp.Type == sfu.SdpType_OFFER {
+				if err := p.Conn.HandleOffer(sdp); err != nil {
+					return err
+				}
+
+			}
+
+		case ice, ok := <-p.RecvIce:
+			if !ok {
+				return nil
+			}
+
+			if err := p.Conn.HandleRemoteIce(ice); err != nil {
+				return err
+			}
+		}
+	}
+
+}
+
+func (p *PubConn) Disconnect() error {
+	//  Cancel all groutines
+	if err := p.Conn.Close(); err != nil {
+		return err
+	}
+
+	p.Cancel()
+
+	close(p.RecvSdp)
+	close(p.RecvIce)
+
+	p.Log.Info("Publisher pc disconnected")
+
+	return nil
+}
+
+func (p *PubConn) GetLocalAudio() *webrtc.TrackLocalStaticRTP {
+	return p.LocalAudio
+}
+
+func (p *PubConn) GetLocalVideo() *webrtc.TrackLocalStaticRTP {
+	return p.LocalVideo
+}
+
+func (p *PubConn) EnqueueSdp(sdp *sfu.PeerSignal_Sdp) {
+	p.RecvSdp <- sdp
+}
+
+func (p *PubConn) EnqueueIce(ice *sfu.PeerSignal_Ice) {
+	p.RecvIce <- ice
 }
 
 // set up on track
-func (p *Publisher) handleOnTrack(remote *webrtc.TrackRemote, recv *webrtc.RTPReceiver) {
+func (p *PubConn) handleOnTrack(remote *webrtc.TrackRemote, recv *webrtc.RTPReceiver) {
 	local, err := webrtc.NewTrackLocalStaticRTP(
 		remote.Codec().RTPCodecCapability,
 		remote.ID(),
@@ -65,7 +117,8 @@ func (p *Publisher) handleOnTrack(remote *webrtc.TrackRemote, recv *webrtc.RTPRe
 	)
 
 	if err != nil {
-		p.log.Error("unable to create new local strack")
+		p.Log.Error("unable to create new local strack")
+		p.Cancel()
 		return
 	}
 
@@ -76,15 +129,23 @@ func (p *Publisher) handleOnTrack(remote *webrtc.TrackRemote, recv *webrtc.RTPRe
 		p.LocalVideo = local
 	}
 
+	// Pump RTP packets from remote tracks
 	go func() {
 		for {
+			select {
+			case <-p.Ctx.Done():
+				return
+			default:
+
+			}
+
 			pkt, _, err := remote.ReadRTP()
 			if err != nil {
 				return
 			}
 
 			if err := local.WriteRTP(pkt); err != nil {
-				p.log.Warn("unable to send rtp packet to tracks")
+				p.Log.Warn("unable to send rtp packet to tracks")
 			}
 		}
 	}()

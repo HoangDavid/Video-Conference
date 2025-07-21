@@ -1,39 +1,29 @@
 package domain
 
 import (
+	"context"
 	"log/slog"
-	"sync"
 	sfu "vidcall/api/proto"
-
-	"github.com/pion/webrtc/v3"
 )
 
-type Peer struct {
+type Peer interface {
+	GetID() string
+	Pub() Publisher
+	Sub() Subscriber
+	Connect() error
+	Disconnect() error
+	EnqueueEvent(event *sfu.PeerSignal_Event)
+}
+
+type PeerObj struct {
 	ID         string
-	RoomID     string
 	Log        *slog.Logger
+	Ctx        context.Context
+	Cancel     context.CancelFunc
 	Stream     sfu.SFU_SignalServer
-	Publisher  *Publisher
-	Subscriber *Subscriber
+	Publisher  Publisher
+	Subscriber Subscriber
 
 	SendQ  chan *sfu.PeerSignal
-	EventQ chan *sfu.PeerSignal
-}
-
-type Publisher struct {
-	PC         *webrtc.PeerConnection
-	LocalAudio *webrtc.TrackLocalStaticRTP
-	LocalVideo *webrtc.TrackLocalStaticRTP
-}
-
-type Subscriber struct {
-	Mu         sync.RWMutex
-	PC         *webrtc.PeerConnection
-	IdleAudios []*webrtc.RTPTransceiver
-	IdleVideos []*webrtc.RTPTransceiver
-	Dub        *webrtc.RTPTransceiver
-	Sub        *webrtc.DataChannel
-
-	ActiveVideos map[string]*webrtc.RTPTransceiver
-	ActiveAudios map[string]*webrtc.RTPTransceiver
+	EventQ chan *sfu.PeerSignal_Event
 }

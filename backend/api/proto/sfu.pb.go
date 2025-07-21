@@ -249,8 +249,9 @@ func (PcType) EnumDescriptor() ([]byte, []int) {
 // Action
 type Action struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Type          ActionType             `protobuf:"varint,1,opt,name=type,proto3,enum=SFU.ActionType" json:"type,omitempty"`
-	Toggle        bool                   `protobuf:"varint,2,opt,name=toggle,proto3" json:"toggle,omitempty"`
+	Roomid        string                 `protobuf:"bytes,1,opt,name=roomid,proto3" json:"roomid,omitempty"`
+	Peerid        string                 `protobuf:"bytes,2,opt,name=peerid,proto3" json:"peerid,omitempty"`
+	Type          ActionType             `protobuf:"varint,3,opt,name=type,proto3,enum=SFU.ActionType" json:"type,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -285,6 +286,20 @@ func (*Action) Descriptor() ([]byte, []int) {
 	return file_api_proto_sfu_proto_rawDescGZIP(), []int{0}
 }
 
+func (x *Action) GetRoomid() string {
+	if x != nil {
+		return x.Roomid
+	}
+	return ""
+}
+
+func (x *Action) GetPeerid() string {
+	if x != nil {
+		return x.Peerid
+	}
+	return ""
+}
+
 func (x *Action) GetType() ActionType {
 	if x != nil {
 		return x.Type
@@ -292,11 +307,64 @@ func (x *Action) GetType() ActionType {
 	return ActionType_START_ROOM
 }
 
-func (x *Action) GetToggle() bool {
+type Event struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Roomid        string                 `protobuf:"bytes,1,opt,name=roomid,proto3" json:"roomid,omitempty"`
+	Peerid        string                 `protobuf:"bytes,2,opt,name=peerid,proto3" json:"peerid,omitempty"`
+	Type          EventType              `protobuf:"varint,3,opt,name=type,proto3,enum=SFU.EventType" json:"type,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Event) Reset() {
+	*x = Event{}
+	mi := &file_api_proto_sfu_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Event) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Event) ProtoMessage() {}
+
+func (x *Event) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_sfu_proto_msgTypes[1]
 	if x != nil {
-		return x.Toggle
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
 	}
-	return false
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Event.ProtoReflect.Descriptor instead.
+func (*Event) Descriptor() ([]byte, []int) {
+	return file_api_proto_sfu_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *Event) GetRoomid() string {
+	if x != nil {
+		return x.Roomid
+	}
+	return ""
+}
+
+func (x *Event) GetPeerid() string {
+	if x != nil {
+		return x.Peerid
+	}
+	return ""
+}
+
+func (x *Event) GetType() EventType {
+	if x != nil {
+		return x.Type
+	}
+	return EventType_ROOM_ACTIVE
 }
 
 // Session Description (SDP)
@@ -311,7 +379,7 @@ type Sdp struct {
 
 func (x *Sdp) Reset() {
 	*x = Sdp{}
-	mi := &file_api_proto_sfu_proto_msgTypes[1]
+	mi := &file_api_proto_sfu_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -323,7 +391,7 @@ func (x *Sdp) String() string {
 func (*Sdp) ProtoMessage() {}
 
 func (x *Sdp) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_sfu_proto_msgTypes[1]
+	mi := &file_api_proto_sfu_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -336,7 +404,7 @@ func (x *Sdp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Sdp.ProtoReflect.Descriptor instead.
 func (*Sdp) Descriptor() ([]byte, []int) {
-	return file_api_proto_sfu_proto_rawDescGZIP(), []int{1}
+	return file_api_proto_sfu_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *Sdp) GetPc() PcType {
@@ -374,7 +442,7 @@ type IceCandidate struct {
 
 func (x *IceCandidate) Reset() {
 	*x = IceCandidate{}
-	mi := &file_api_proto_sfu_proto_msgTypes[2]
+	mi := &file_api_proto_sfu_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -386,7 +454,7 @@ func (x *IceCandidate) String() string {
 func (*IceCandidate) ProtoMessage() {}
 
 func (x *IceCandidate) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_sfu_proto_msgTypes[2]
+	mi := &file_api_proto_sfu_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -399,7 +467,7 @@ func (x *IceCandidate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IceCandidate.ProtoReflect.Descriptor instead.
 func (*IceCandidate) Descriptor() ([]byte, []int) {
-	return file_api_proto_sfu_proto_rawDescGZIP(), []int{2}
+	return file_api_proto_sfu_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *IceCandidate) GetPc() PcType {
@@ -438,9 +506,7 @@ func (x *IceCandidate) GetUsernameFragment() string {
 }
 
 type PeerSignal struct {
-	state  protoimpl.MessageState `protogen:"open.v1"`
-	RoomId string                 `protobuf:"bytes,100,opt,name=room_id,json=roomId,proto3" json:"room_id,omitempty"`
-	PeerId string                 `protobuf:"bytes,101,opt,name=peer_id,json=peerId,proto3" json:"peer_id,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
 	// Types that are valid to be assigned to Payload:
 	//
 	//	*PeerSignal_Sdp
@@ -454,7 +520,7 @@ type PeerSignal struct {
 
 func (x *PeerSignal) Reset() {
 	*x = PeerSignal{}
-	mi := &file_api_proto_sfu_proto_msgTypes[3]
+	mi := &file_api_proto_sfu_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -466,7 +532,7 @@ func (x *PeerSignal) String() string {
 func (*PeerSignal) ProtoMessage() {}
 
 func (x *PeerSignal) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_sfu_proto_msgTypes[3]
+	mi := &file_api_proto_sfu_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -479,21 +545,7 @@ func (x *PeerSignal) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PeerSignal.ProtoReflect.Descriptor instead.
 func (*PeerSignal) Descriptor() ([]byte, []int) {
-	return file_api_proto_sfu_proto_rawDescGZIP(), []int{3}
-}
-
-func (x *PeerSignal) GetRoomId() string {
-	if x != nil {
-		return x.RoomId
-	}
-	return ""
-}
-
-func (x *PeerSignal) GetPeerId() string {
-	if x != nil {
-		return x.PeerId
-	}
-	return ""
+	return file_api_proto_sfu_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *PeerSignal) GetPayload() isPeerSignal_Payload {
@@ -530,13 +582,13 @@ func (x *PeerSignal) GetAction() *Action {
 	return nil
 }
 
-func (x *PeerSignal) GetEvent() EventType {
+func (x *PeerSignal) GetEvent() *Event {
 	if x != nil {
 		if x, ok := x.Payload.(*PeerSignal_Event); ok {
 			return x.Event
 		}
 	}
-	return EventType_ROOM_ACTIVE
+	return nil
 }
 
 type isPeerSignal_Payload interface {
@@ -556,7 +608,7 @@ type PeerSignal_Action struct {
 }
 
 type PeerSignal_Event struct {
-	Event EventType `protobuf:"varint,4,opt,name=event,proto3,enum=SFU.EventType,oneof"`
+	Event *Event `protobuf:"bytes,4,opt,name=event,proto3,oneof"`
 }
 
 func (*PeerSignal_Sdp) isPeerSignal_Payload() {}
@@ -571,10 +623,15 @@ var File_api_proto_sfu_proto protoreflect.FileDescriptor
 
 const file_api_proto_sfu_proto_rawDesc = "" +
 	"\n" +
-	"\x13api/proto/sfu.proto\x12\x03SFU\"E\n" +
-	"\x06Action\x12#\n" +
-	"\x04type\x18\x01 \x01(\x0e2\x0f.SFU.ActionTypeR\x04type\x12\x16\n" +
-	"\x06toggle\x18\x02 \x01(\bR\x06toggle\"V\n" +
+	"\x13api/proto/sfu.proto\x12\x03SFU\"]\n" +
+	"\x06Action\x12\x16\n" +
+	"\x06roomid\x18\x01 \x01(\tR\x06roomid\x12\x16\n" +
+	"\x06peerid\x18\x02 \x01(\tR\x06peerid\x12#\n" +
+	"\x04type\x18\x03 \x01(\x0e2\x0f.SFU.ActionTypeR\x04type\"[\n" +
+	"\x05Event\x12\x16\n" +
+	"\x06roomid\x18\x01 \x01(\tR\x06roomid\x12\x16\n" +
+	"\x06peerid\x18\x02 \x01(\tR\x06peerid\x12\"\n" +
+	"\x04type\x18\x03 \x01(\x0e2\x0e.SFU.EventTypeR\x04type\"V\n" +
 	"\x03Sdp\x12\x1b\n" +
 	"\x02pc\x18\x01 \x01(\x0e2\v.SFU.PcTypeR\x02pc\x12 \n" +
 	"\x04type\x18\x02 \x01(\x0e2\f.SFU.SdpTypeR\x04type\x12\x10\n" +
@@ -584,15 +641,14 @@ const file_api_proto_sfu_proto_rawDesc = "" +
 	"\tcandidate\x18\x02 \x01(\tR\tcandidate\x12\x17\n" +
 	"\asdp_mid\x18\x03 \x01(\tR\x06sdpMid\x12&\n" +
 	"\x0fsdp_mline_index\x18\x04 \x01(\rR\rsdpMlineIndex\x12+\n" +
-	"\x11username_fragment\x18\x05 \x01(\tR\x10usernameFragment\"\xdd\x01\n" +
+	"\x11username_fragment\x18\x05 \x01(\tR\x10usernameFragment\"\xa7\x01\n" +
 	"\n" +
-	"PeerSignal\x12\x17\n" +
-	"\aroom_id\x18d \x01(\tR\x06roomId\x12\x17\n" +
-	"\apeer_id\x18e \x01(\tR\x06peerId\x12\x1c\n" +
+	"PeerSignal\x12\x1c\n" +
 	"\x03sdp\x18\x01 \x01(\v2\b.SFU.SdpH\x00R\x03sdp\x12%\n" +
 	"\x03ice\x18\x02 \x01(\v2\x11.SFU.IceCandidateH\x00R\x03ice\x12%\n" +
-	"\x06action\x18\x03 \x01(\v2\v.SFU.ActionH\x00R\x06action\x12&\n" +
-	"\x05event\x18\x04 \x01(\x0e2\x0e.SFU.EventTypeH\x00R\x05eventB\t\n" +
+	"\x06action\x18\x03 \x01(\v2\v.SFU.ActionH\x00R\x06action\x12\"\n" +
+	"\x05event\x18\x04 \x01(\v2\n" +
+	".SFU.EventH\x00R\x05eventB\t\n" +
 	"\apayload* \n" +
 	"\aSdpType\x12\t\n" +
 	"\x05OFFER\x10\x00\x12\n" +
@@ -640,33 +696,35 @@ func file_api_proto_sfu_proto_rawDescGZIP() []byte {
 }
 
 var file_api_proto_sfu_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_api_proto_sfu_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_api_proto_sfu_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_api_proto_sfu_proto_goTypes = []any{
 	(SdpType)(0),         // 0: SFU.SdpType
 	(ActionType)(0),      // 1: SFU.ActionType
 	(EventType)(0),       // 2: SFU.EventType
 	(PcType)(0),          // 3: SFU.PcType
 	(*Action)(nil),       // 4: SFU.Action
-	(*Sdp)(nil),          // 5: SFU.Sdp
-	(*IceCandidate)(nil), // 6: SFU.IceCandidate
-	(*PeerSignal)(nil),   // 7: SFU.PeerSignal
+	(*Event)(nil),        // 5: SFU.Event
+	(*Sdp)(nil),          // 6: SFU.Sdp
+	(*IceCandidate)(nil), // 7: SFU.IceCandidate
+	(*PeerSignal)(nil),   // 8: SFU.PeerSignal
 }
 var file_api_proto_sfu_proto_depIdxs = []int32{
-	1, // 0: SFU.Action.type:type_name -> SFU.ActionType
-	3, // 1: SFU.Sdp.pc:type_name -> SFU.PcType
-	0, // 2: SFU.Sdp.type:type_name -> SFU.SdpType
-	3, // 3: SFU.IceCandidate.pc:type_name -> SFU.PcType
-	5, // 4: SFU.PeerSignal.sdp:type_name -> SFU.Sdp
-	6, // 5: SFU.PeerSignal.ice:type_name -> SFU.IceCandidate
-	4, // 6: SFU.PeerSignal.action:type_name -> SFU.Action
-	2, // 7: SFU.PeerSignal.event:type_name -> SFU.EventType
-	7, // 8: SFU.SFU.Signal:input_type -> SFU.PeerSignal
-	7, // 9: SFU.SFU.Signal:output_type -> SFU.PeerSignal
-	9, // [9:10] is the sub-list for method output_type
-	8, // [8:9] is the sub-list for method input_type
-	8, // [8:8] is the sub-list for extension type_name
-	8, // [8:8] is the sub-list for extension extendee
-	0, // [0:8] is the sub-list for field type_name
+	1,  // 0: SFU.Action.type:type_name -> SFU.ActionType
+	2,  // 1: SFU.Event.type:type_name -> SFU.EventType
+	3,  // 2: SFU.Sdp.pc:type_name -> SFU.PcType
+	0,  // 3: SFU.Sdp.type:type_name -> SFU.SdpType
+	3,  // 4: SFU.IceCandidate.pc:type_name -> SFU.PcType
+	6,  // 5: SFU.PeerSignal.sdp:type_name -> SFU.Sdp
+	7,  // 6: SFU.PeerSignal.ice:type_name -> SFU.IceCandidate
+	4,  // 7: SFU.PeerSignal.action:type_name -> SFU.Action
+	5,  // 8: SFU.PeerSignal.event:type_name -> SFU.Event
+	8,  // 9: SFU.SFU.Signal:input_type -> SFU.PeerSignal
+	8,  // 10: SFU.SFU.Signal:output_type -> SFU.PeerSignal
+	10, // [10:11] is the sub-list for method output_type
+	9,  // [9:10] is the sub-list for method input_type
+	9,  // [9:9] is the sub-list for extension type_name
+	9,  // [9:9] is the sub-list for extension extendee
+	0,  // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_api_proto_sfu_proto_init() }
@@ -674,7 +732,7 @@ func file_api_proto_sfu_proto_init() {
 	if File_api_proto_sfu_proto != nil {
 		return
 	}
-	file_api_proto_sfu_proto_msgTypes[3].OneofWrappers = []any{
+	file_api_proto_sfu_proto_msgTypes[4].OneofWrappers = []any{
 		(*PeerSignal_Sdp)(nil),
 		(*PeerSignal_Ice)(nil),
 		(*PeerSignal_Action)(nil),
@@ -686,7 +744,7 @@ func file_api_proto_sfu_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_proto_sfu_proto_rawDesc), len(file_api_proto_sfu_proto_rawDesc)),
 			NumEnums:      4,
-			NumMessages:   4,
+			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

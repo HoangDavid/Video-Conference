@@ -5,28 +5,68 @@ import (
 	"vidcall/internal/sfu/domain"
 )
 
+type HubObj struct {
+	*domain.HubObj
+}
+
 var (
 	once sync.Once
-	hub  *domain.Hub
+	hub  *domain.HubObj
 )
 
 func Init() {
 	once.Do(func() {
-		hub = &domain.Hub{
+		hub = &domain.HubObj{
 			Stuns: []string{"stun:stun.l.google.com:19302"},
-			Rooms: make(map[string]*domain.Room),
+			Rooms: make(map[string]domain.Room),
 		}
 	})
 }
 
-func Hub() *domain.Hub {
-	return hub
+func Hub() domain.Hub {
+	return &HubObj{
+		HubObj: hub,
+	}
 }
 
-func GetRoom(roomID string) *domain.Room {
-	hub.Mu.RLock()
-	room := hub.Rooms[roomID]
-	hub.Mu.RUnlock()
+func (h *HubObj) GetStuns() []string {
+	return h.Stuns
+}
 
-	return room
+func (h *HubObj) GetTurn() string {
+	return h.Turn
+}
+
+func (h *HubObj) AddRoom(roomID string, room domain.Room) {
+	h.Mu.Lock()
+	defer h.Mu.Unlock()
+	h.Rooms[roomID] = room
+}
+
+func (h *HubObj) RemoveRoom(roomID string) domain.Room {
+	h.Mu.Lock()
+	defer h.Mu.Unlock()
+
+	v, ok := h.Rooms[roomID]
+	if !ok {
+		return nil
+	}
+
+	delete(h.Rooms, roomID)
+	return v
+}
+
+func (h *HubObj) GetRoom(roomID string) domain.Room {
+	h.Mu.Lock()
+	defer h.Mu.Unlock()
+
+	h.Mu.Lock()
+	defer h.Mu.Unlock()
+
+	v, ok := h.Rooms[roomID]
+	if !ok {
+		return nil
+	}
+
+	return v
 }

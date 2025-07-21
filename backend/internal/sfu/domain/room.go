@@ -2,11 +2,19 @@ package domain
 
 import (
 	"sync"
+	sfu "vidcall/api/proto"
 )
 
-type Room struct {
+type Room interface {
+	AddPeer(peerID string, peer Peer)
+	RemovePeer(peerID string) Peer
+	GetPeer(peerID string) Peer
+	BroadCast(peerID string, event *sfu.PeerSignal_Event)
+	ListPeers() map[string]Peer
+}
+
+type RoomObj struct {
 	Mu    sync.RWMutex
 	ID    string
-	Peers map[string]*Peer
-	Live  bool
+	Peers map[string]Peer
 }
