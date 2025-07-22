@@ -137,12 +137,13 @@ type EventType int32
 const (
 	EventType_ROOM_ACTIVE   EventType = 0
 	EventType_ROOM_INACTIVE EventType = 1
-	EventType_JOIN_EVENT    EventType = 2
-	EventType_LEAVE_EVENT   EventType = 3
-	EventType_AUDIO_ON      EventType = 4
-	EventType_AUDIO_OFF     EventType = 5
-	EventType_VIDEO_ON      EventType = 6
-	EventType_VIDEO_OFF     EventType = 7
+	EventType_ROOM_ENEDED   EventType = 3
+	EventType_JOIN_EVENT    EventType = 4
+	EventType_LEAVE_EVENT   EventType = 5
+	EventType_AUDIO_ON      EventType = 6
+	EventType_AUDIO_OFF     EventType = 7
+	EventType_VIDEO_ON      EventType = 8
+	EventType_VIDEO_OFF     EventType = 9
 )
 
 // Enum value maps for EventType.
@@ -150,22 +151,24 @@ var (
 	EventType_name = map[int32]string{
 		0: "ROOM_ACTIVE",
 		1: "ROOM_INACTIVE",
-		2: "JOIN_EVENT",
-		3: "LEAVE_EVENT",
-		4: "AUDIO_ON",
-		5: "AUDIO_OFF",
-		6: "VIDEO_ON",
-		7: "VIDEO_OFF",
+		3: "ROOM_ENEDED",
+		4: "JOIN_EVENT",
+		5: "LEAVE_EVENT",
+		6: "AUDIO_ON",
+		7: "AUDIO_OFF",
+		8: "VIDEO_ON",
+		9: "VIDEO_OFF",
 	}
 	EventType_value = map[string]int32{
 		"ROOM_ACTIVE":   0,
 		"ROOM_INACTIVE": 1,
-		"JOIN_EVENT":    2,
-		"LEAVE_EVENT":   3,
-		"AUDIO_ON":      4,
-		"AUDIO_OFF":     5,
-		"VIDEO_ON":      6,
-		"VIDEO_OFF":     7,
+		"ROOM_ENEDED":   3,
+		"JOIN_EVENT":    4,
+		"LEAVE_EVENT":   5,
+		"AUDIO_ON":      6,
+		"AUDIO_OFF":     7,
+		"VIDEO_ON":      8,
+		"VIDEO_OFF":     9,
 	}
 )
 
@@ -664,17 +667,18 @@ const file_api_proto_sfu_proto_rawDesc = "" +
 	"\x05AUDIO\x10\x04\x12\t\n" +
 	"\x05VIDEO\x10\x05\x12\f\n" +
 	"\bSUBTITLE\x10\x06\x12\a\n" +
-	"\x03DUB\x10\a*\x8a\x01\n" +
+	"\x03DUB\x10\a*\x9b\x01\n" +
 	"\tEventType\x12\x0f\n" +
 	"\vROOM_ACTIVE\x10\x00\x12\x11\n" +
-	"\rROOM_INACTIVE\x10\x01\x12\x0e\n" +
+	"\rROOM_INACTIVE\x10\x01\x12\x0f\n" +
+	"\vROOM_ENEDED\x10\x03\x12\x0e\n" +
 	"\n" +
-	"JOIN_EVENT\x10\x02\x12\x0f\n" +
-	"\vLEAVE_EVENT\x10\x03\x12\f\n" +
-	"\bAUDIO_ON\x10\x04\x12\r\n" +
-	"\tAUDIO_OFF\x10\x05\x12\f\n" +
-	"\bVIDEO_ON\x10\x06\x12\r\n" +
-	"\tVIDEO_OFF\x10\a*.\n" +
+	"JOIN_EVENT\x10\x04\x12\x0f\n" +
+	"\vLEAVE_EVENT\x10\x05\x12\f\n" +
+	"\bAUDIO_ON\x10\x06\x12\r\n" +
+	"\tAUDIO_OFF\x10\a\x12\f\n" +
+	"\bVIDEO_ON\x10\b\x12\r\n" +
+	"\tVIDEO_OFF\x10\t*.\n" +
 	"\x06PcType\x12\x12\n" +
 	"\x0ePC_UNSPECIFIED\x10\x00\x12\a\n" +
 	"\x03PUB\x10\x01\x12\a\n" +

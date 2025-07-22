@@ -24,12 +24,13 @@ enum ActionType {
 enum EventType {
     ROOM_ACTIVE = 0;
     ROOM_INACTIVE = 1;
-    JOIN_EVENT = 2;
-    LEAVE_EVENT = 3;
-    AUDIO_ON = 4;
-    AUDIO_OFF = 5;
-    VIDEO_ON = 6;
-    VIDEO_OFF = 7;
+    ROOM_ENEDED = 3;
+    JOIN_EVENT = 4;
+    LEAVE_EVENT = 5;
+    AUDIO_ON = 6;
+    AUDIO_OFF = 7;
+    VIDEO_ON = 8;
+    VIDEO_OFF = 9;
 }
 
 // Peer Connection Type

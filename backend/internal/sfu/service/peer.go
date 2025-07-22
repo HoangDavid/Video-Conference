@@ -173,12 +173,24 @@ func (p *PeerObj) eventCycle() error {
 func (p *PeerObj) handleActions(act *sfu.PeerSignal_Action) error {
 
 	actType := act.Action.Type
+	roomID := act.Action.Roomid
+
+	if p.ID == "" {
+		p.ID = act.Action.Peerid
+	}
 
 	switch actType {
 	case sfu.ActionType_START_ROOM:
+		p.handleStartRoom(roomID)
+
 	case sfu.ActionType_JOIN:
+		p.handleJoinRoom(roomID)
+
 	case sfu.ActionType_LEAVE:
+		p.handleLeaveRoom(roomID)
+
 	case sfu.ActionType_END_ROOM:
+		p.handleEndRoom(roomID)
 	}
 
 	return nil
@@ -189,9 +201,23 @@ func (p *PeerObj) handleEvents(evt *sfu.PeerSignal_Event) error {
 
 	switch evtType {
 	case sfu.EventType_ROOM_ACTIVE:
+		p.handleRoomActiveEvent(evt)
+
 	case sfu.EventType_ROOM_INACTIVE:
+		p.handleRoomInactiveEvent(evt)
+
 	case sfu.EventType_JOIN_EVENT:
+		if err := p.handleJoinEvent(evt); err != nil {
+			return err
+		}
+
 	case sfu.EventType_LEAVE_EVENT:
+		if err := p.handleLeaveEvent(evt); err != nil {
+			return err
+		}
+
+	case sfu.EventType_ROOM_ENEDED:
+		p.handleRoomEndedEvent()
 	}
 	return nil
 }
