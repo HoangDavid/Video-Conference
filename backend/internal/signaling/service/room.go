@@ -49,36 +49,7 @@ func NewRoom(ctx context.Context, duration time.Duration, name string) (*domain.
 	return &room, host_token, nil
 }
 
-func StartRoom(ctx context.Context) error {
-
-	// log := logger.GetLog(ctx).With("layer", "service")
-
-	// Check for member role
-	claims := security.ClaimsFrom(ctx)
-	role := claims.Role
-	if role != "host" {
-		return domain.ErrForbidden
-	}
-
-	return nil
-}
-
-func JoinRoom(ctx context.Context) error {
-	// TODO: broadcast to notify join action
-	log := logger.GetLog(ctx).With("layer", "service")
-
-	claims := security.ClaimsFrom(ctx)
-	roomID := claims.RoomID
-	log = log.With("roomID", roomID)
-	log.Info("a member joined")
-
-	return nil
-}
-
-func LeaveRoom(ctx context.Context) error {
-	return nil
-}
-
 func Lobby(ctx context.Context, roomID string) {
-
+	// TODO: wait for room active
+	// TODO: allow to leave lobby
 }

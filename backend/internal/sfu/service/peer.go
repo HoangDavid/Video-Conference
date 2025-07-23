@@ -18,8 +18,8 @@ func NewPeer(ctx context.Context, stream sfu.SFU_SignalServer, poolSize int) (do
 	log := logger.GetLog(ctx).With("layer", "service")
 
 	// Create channel to send msg and events
-	sendQ := make(chan *sfu.PeerSignal)
-	eventQ := make(chan *sfu.PeerSignal_Event)
+	sendQ := make(chan *sfu.PeerSignal, 64)
+	eventQ := make(chan *sfu.PeerSignal_Event, 64)
 
 	duration := time.Duration(50 * time.Millisecond)
 

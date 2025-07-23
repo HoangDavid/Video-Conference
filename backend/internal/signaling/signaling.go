@@ -9,7 +9,8 @@ import (
 	sfu "vidcall/api/proto"
 	"vidcall/internal/signaling/infra"
 	"vidcall/internal/signaling/security"
-	"vidcall/internal/signaling/transport"
+	"vidcall/internal/signaling/transport/httpx"
+	"vidcall/internal/signaling/transport/wsx"
 	"vidcall/pkg/logger"
 
 	_ "github.com/joho/godotenv/autoload"
@@ -43,14 +44,14 @@ func Execute() {
 	sfuClient := sfu.NewSFUClient(sfuConn)
 
 	// create new room and auth
-	mux.HandleFunc("GET /rooms/new/{duration}", security.WithIssuer(issuer)(transport.HandleCreateRoom))
-	mux.HandleFunc("POST /rooms/{room_id}/auth", security.WithIssuer(issuer)(transport.HandleAuth))
+	mux.HandleFunc("GET /rooms/new/{duration}", security.WithIssuer(issuer)(httpx.HandleCreateRoom))
+	mux.HandleFunc("POST /rooms/{room_id}/auth", security.WithIssuer(issuer)(httpx.HandleAuth))
 
 	// secured endpoints
 	// mux.HandleFunc("GET /ws", security.RequireAuth(issuer)(func(w http.ResponseWriter, r *http.Request) {
 	// 	transport.HandleWS(w, r, sfuClient) }))
 	mux.HandleFunc("GET /ws", func(w http.ResponseWriter, r *http.Request) {
-		transport.HandleWS(w, r, sfuClient)
+		wsx.HandleWS(w, r, sfuClient)
 	})
 
 	port := os.Getenv("SIGNALING_PORT")

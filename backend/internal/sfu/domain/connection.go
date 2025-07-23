@@ -11,6 +11,7 @@ import (
 
 type Connection interface {
 	GetPC() *webrtc.PeerConnection
+	GetAudioURI() string
 	HandleNegotiationNeeded()
 	HandleLocalIce(candidate *webrtc.ICECandidate)
 	HandleRemoteIce(candidate *sfu.PeerSignal_Ice) error
@@ -22,6 +23,7 @@ type Connection interface {
 
 type PConn struct {
 	PC            *webrtc.PeerConnection
+	AudioLevelURI string
 	Log           *slog.Logger
 	IceBuffers    chan webrtc.ICECandidateInit
 	RecvQ         chan *sfu.PeerSignal

@@ -16,38 +16,31 @@ type SubConn struct {
 
 func NewSubscriber(ctx context.Context, sendQ chan *sfu.PeerSignal, log *slog.Logger, poolSize int, debounceInterval time.Duration) (domain.Subscriber, error) {
 
-	conn, err := NewPConn(sendQ, log, debounceInterval)
+	conn, err := NewPConn(sendQ, log, debounceInterval, false)
 
 	if err != nil {
 		return nil, err
 	}
 
-	//  Add tracks to send
 	direction := webrtc.RTPTransceiverInit{Direction: webrtc.RTPTransceiverDirectionSendonly}
 
-	var idleAudios []*webrtc.RTPTransceiver
+	// Add audio tracks
+	audioT, err := conn.GetPC().AddTransceiverFromKind(webrtc.RTPCodecTypeAudio, direction)
+	if err != nil {
+		log.Error("unable to create audio track")
+		return nil, err
+	}
+
+	//  Add video tracks
 	var idleVideos []*webrtc.RTPTransceiver
 	for i := 0; i < poolSize; i++ {
-
-		audioT, err := conn.GetPC().AddTransceiverFromKind(webrtc.RTPCodecTypeAudio, direction)
-		if err != nil {
-			log.Error("unable to create audio track")
-		}
-
 		videoT, err := conn.GetPC().AddTransceiverFromKind(webrtc.RTPCodecTypeVideo, direction)
 		if err != nil {
 			log.Error("unable to create video track")
 		}
 
-		idleAudios = append(idleAudios, audioT)
 		idleVideos = append(idleVideos, videoT)
 
-	}
-
-	// add dubbing audio track
-	dub, err := conn.GetPC().AddTransceiverFromKind(webrtc.RTPCodecTypeAudio, direction)
-	if err != nil {
-		log.Error("unable to create dub audiotrack")
 	}
 
 	ordered := false
@@ -75,12 +68,10 @@ func NewSubscriber(ctx context.Context, sendQ chan *sfu.PeerSignal, log *slog.Lo
 			Cancel: subCancel,
 
 			Direction:  direction,
-			IdleAudios: idleAudios,
+			AudioOut:   audioT,
 			IdleVideos: idleVideos,
-			Dub:        dub,
 			Sub:        sub,
 
-			ActiveAudios: make(map[string]*webrtc.RTPTransceiver),
 			ActiveVideos: make(map[string]*webrtc.RTPTransceiver),
 
 			RecvSdp: make(chan *sfu.PeerSignal_Sdp),
@@ -89,13 +80,15 @@ func NewSubscriber(ctx context.Context, sendQ chan *sfu.PeerSignal, log *slog.Lo
 	}, nil
 }
 
+// wire pc call backs
 func (s *SubConn) WireCallBacks() {
 	pc := s.Conn.GetPC()
 	pc.OnICECandidate(s.Conn.HandleLocalIce)
 	pc.OnTrack(nil)
-	pc.OnNegotiationNeeded(s.Conn.HandleNegotiationNeeded)
+	pc.OnNegotiationNeeded(nil)
 }
 
+// start ice/sdp exchange for pc
 func (s *SubConn) Connect() error {
 	// Send an offer to client
 	if err := s.Conn.SendOffer(); err != nil {
@@ -130,6 +123,7 @@ func (s *SubConn) Connect() error {
 	}
 }
 
+// tear down goroutines and pc
 func (s *SubConn) Disconnect() error {
 	if err := s.Conn.Close(); err != nil {
 		return err
@@ -153,72 +147,20 @@ func (s *SubConn) EnqueueIce(ice *sfu.PeerSignal_Ice) {
 	s.RecvIce <- ice
 }
 
-func (s *SubConn) SubscribeRoom(ownerID string, room domain.Room) error {
-	peers := room.ListPeers()
+// subscribe to remote peer video track
+func (s *SubConn) SubscribeVideo(peer domain.Peer) error {
 
-	for id, peer := range peers {
-		if ownerID == id {
-			continue
-		}
-
-		if err := s.Subscribe(peer); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (s *SubConn) UnsubscribeRoom(ownerID string, room domain.Room) error {
-	peers := room.ListPeers()
-
-	for id, peer := range peers {
-		if ownerID == id {
-			continue
-		}
-
-		if err := s.Unsubscribe(peer.GetID()); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// subscribe to remote peer track
-func (s *SubConn) Subscribe(peer domain.Peer) error {
-
-	var audioT *webrtc.RTPTransceiver
 	var videoT *webrtc.RTPTransceiver
-	var err error = nil
 
 	s.Mu.Lock()
-	audioT, s.IdleAudios = s.pop(s.IdleAudios)
 	videoT, s.IdleVideos = s.pop(s.IdleVideos)
 	s.Mu.Unlock()
 
-	// Subcribe to audio track
-
-	if audioT == nil {
-		audioT, err = s.Conn.GetPC().AddTransceiverFromKind(webrtc.RTPCodecTypeAudio, s.Direction)
-
-		if err != nil {
-			s.Log.Error("unable to add audio track")
-			return err
-		}
-	}
-
 	if videoT == nil {
-		videoT, err = s.Conn.GetPC().AddTransceiverFromKind(webrtc.RTPCodecTypeVideo, s.Direction)
-
-		if err != nil {
-			s.Log.Error("unable to add video track")
-			return err
-		}
+		// TODO: add paging for subcriber
 	}
 
-	// attach track dynamically
-	go s.attachTrack(peer.GetID(), peer.Pub().GetLocalAudio(), audioT)
+	// attach video track dynamically
 	go s.attachTrack(peer.GetID(), peer.Pub().GetLocalVideo(), videoT)
 
 	return nil
@@ -226,22 +168,12 @@ func (s *SubConn) Subscribe(peer domain.Peer) error {
 }
 
 // Unsubcribe to remote peers track
-func (s *SubConn) Unsubscribe(peerID string) error {
-	var audioT *webrtc.RTPTransceiver
+func (s *SubConn) UnsubscribeVideo(peerID string) error {
 	var videoT *webrtc.RTPTransceiver
 
 	s.Mu.Lock()
-	audioT = s.ActiveAudios[peerID]
 	videoT = s.ActiveVideos[peerID]
 	s.Mu.Unlock()
-
-	if audioT != nil {
-		if err := audioT.Sender().ReplaceTrack(nil); err != nil {
-			s.Log.Error("unable to unsubscribe to audio track")
-			return err
-		}
-
-	}
 
 	if videoT != nil {
 		if err := videoT.Sender().ReplaceTrack(nil); err != nil {
@@ -249,11 +181,23 @@ func (s *SubConn) Unsubscribe(peerID string) error {
 		}
 	}
 
-	// update active and idle map
-	go s.detachTrack(peerID, audioT)
+	// update active and idle video track map
 	go s.detachTrack(peerID, videoT)
 
 	return nil
+}
+
+func (s *SubConn) SubcribeAudio(peer domain.Peer) {
+	if peer == nil {
+		return
+	}
+
+	go func() {
+		if err := s.AudioOut.Sender().ReplaceTrack(peer.Pub().GetLocalAudio()); err != nil {
+			s.Log.Error("unable to replace audio track")
+			return
+		}
+	}()
 }
 
 // list pop helper function
@@ -265,24 +209,11 @@ func (s *SubConn) pop(tl []*webrtc.RTPTransceiver) (*webrtc.RTPTransceiver, []*w
 	return tl[0], tl[1:]
 }
 
-// attach track when pc connection is stable
+// attach track
 func (s *SubConn) attachTrack(peerID string, local *webrtc.TrackLocalStaticRTP, tx *webrtc.RTPTransceiver) error {
 
-	if local == nil || tx == nil {
+	if tx == nil {
 		return nil
-	}
-
-	for {
-		select {
-		case <-s.Ctx.Done():
-			return nil
-		default:
-		}
-
-		if s.Conn.GetPC().SignalingState() == webrtc.SignalingStateStable {
-			break
-		}
-		time.Sleep(10 * time.Millisecond)
 	}
 
 	if err := tx.Sender().ReplaceTrack(local); err != nil {
@@ -291,35 +222,19 @@ func (s *SubConn) attachTrack(peerID string, local *webrtc.TrackLocalStaticRTP, 
 
 	}
 
+	// Update active video track
 	s.Mu.Lock()
-	switch tx.Kind() {
-	case webrtc.RTPCodecTypeAudio:
-		s.ActiveAudios[peerID] = tx
-	case webrtc.RTPCodecTypeVideo:
-		s.ActiveVideos[peerID] = tx
-	}
+	s.ActiveVideos[peerID] = tx
 	s.Mu.Unlock()
 
 	return nil
 }
 
+// dettach track
 func (s *SubConn) detachTrack(peerID string, tx *webrtc.RTPTransceiver) error {
+
 	if tx == nil {
 		return nil
-	}
-
-	for {
-		select {
-		case <-s.Ctx.Done():
-			return nil
-		default:
-		}
-
-		if s.Conn.GetPC().SignalingState() == webrtc.SignalingStateStable {
-			break
-		}
-
-		time.Sleep(10 * time.Millisecond)
 	}
 
 	if err := tx.Sender().ReplaceTrack(nil); err != nil {
@@ -329,14 +244,8 @@ func (s *SubConn) detachTrack(peerID string, tx *webrtc.RTPTransceiver) error {
 	}
 
 	s.Mu.Lock()
-	switch tx.Kind() {
-	case webrtc.RTPCodecTypeAudio:
-		s.IdleAudios = append(s.IdleAudios, tx)
-		delete(s.ActiveAudios, peerID)
-	case webrtc.RTPCodecTypeVideo:
-		s.IdleVideos = append(s.IdleVideos, tx)
-		delete(s.ActiveVideos, peerID)
-	}
+	s.IdleVideos = append(s.IdleVideos, tx)
+	delete(s.ActiveVideos, peerID)
 	s.Mu.Unlock()
 
 	return nil

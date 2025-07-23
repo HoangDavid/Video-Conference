@@ -1,4 +1,4 @@
-package transport
+package httpx
 
 import (
 	"net/http"

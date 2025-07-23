@@ -50,18 +50,3 @@ func WithIssuer(i *Issuer) func(http.HandlerFunc) http.HandlerFunc {
 		}
 	}
 }
-
-// func extractToken(r *http.Request) string {
-// 	h := r.Header.Get("Authorization")
-
-// 	if strings.HasPrefix(h, "Bearer ") {
-// 		return strings.TrimPrefix(h, "Bearer ")
-// 	}
-
-// 	if q := r.URL.Query().Get("token"); q != "" {
-// 		return q
-// 	}
-
-// 	return ""
-
-// }

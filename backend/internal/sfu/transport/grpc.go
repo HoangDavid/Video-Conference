@@ -13,12 +13,13 @@ func (s *Server) Signal(stream sfu.SFU_SignalServer) error {
 
 	ctx := stream.Context()
 
-	// Temoporary: max 5 people in a meeting
-	newPeer, err := service.NewPeer(ctx, stream, 5)
+	// Temoporary: max 4 people in a meeting, for demo
+	newPeer, err := service.NewPeer(ctx, stream, 3)
 	if err != nil {
 		return nil
 	}
 
+	// auto cut peer connections by manual/error
 	defer newPeer.Disconnect()
 
 	newPeer.Connect()
