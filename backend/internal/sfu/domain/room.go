@@ -22,4 +22,5 @@ type RoomObj struct {
 	Detector Detector
 	Ctx      context.Context
 	Cancel   context.CancelFunc
+	JoinChan chan Peer
 }

@@ -45,6 +45,16 @@ func (p *PeerObj) handleJoinRoom(roomID string) {
 	// add peer to live room
 	r.AddPeer(p.ID, p)
 
+	// subscribe to room
+	peers := r.ListPeers()
+	for id, peer := range peers {
+		if id == p.ID {
+			continue
+		}
+
+		p.Subscriber.SubscribeVideo(peer)
+	}
+
 	// create join event
 	joinE := &sfu.PeerSignal_Event{
 		Event: &sfu.Event{
@@ -62,9 +72,6 @@ func (p *PeerObj) handleLeaveRoom(roomID string) {
 	r := hub.Hub().GetRoom(roomID)
 	r.RemovePeer(p.ID)
 
-	// stop receiving a/v from other users
-	p.Subscriber.UnsubscribeRoom(p.ID, r)
-
 	// create leave event
 	leaveE := &sfu.PeerSignal_Event{
 		Event: &sfu.Event{
@@ -76,12 +83,13 @@ func (p *PeerObj) handleLeaveRoom(roomID string) {
 
 	r.BroadCast(p.ID, leaveE)
 
-	// stop recieving requests from signaling
+	// trigger to disconnect pc
 	p.Cancel()
 }
 
 func (p *PeerObj) handleEndRoom(roomID string) {
-	r := hub.Hub().RemoveRoom(roomID)
+	r := hub.Hub().GetRoom(roomID)
+	r.Close()
 
 	// create end room event
 	endRoomE := &sfu.PeerSignal_Event{
@@ -94,6 +102,7 @@ func (p *PeerObj) handleEndRoom(roomID string) {
 
 	r.BroadCast(p.ID, endRoomE)
 
+	// trigger to disconnect pc
 	p.Cancel()
 }
 
@@ -102,7 +111,7 @@ func (p *PeerObj) handleRoomActiveEvent(event *sfu.PeerSignal_Event) {
 		Payload: event,
 	}
 
-	p.SendQ <- roomActiveE
+	p.EnqueueSend(roomActiveE)
 }
 
 func (p *PeerObj) handleRoomInactiveEvent(event *sfu.PeerSignal_Event) {
@@ -110,7 +119,7 @@ func (p *PeerObj) handleRoomInactiveEvent(event *sfu.PeerSignal_Event) {
 		Payload: event,
 	}
 
-	p.SendQ <- roomInactiveE
+	p.EnqueueSend(roomInactiveE)
 }
 
 func (p *PeerObj) handleJoinEvent(event *sfu.PeerSignal_Event) error {
@@ -120,7 +129,7 @@ func (p *PeerObj) handleJoinEvent(event *sfu.PeerSignal_Event) error {
 	r := hub.Hub().GetRoom(roomID)
 	peer := r.GetPeer(peerID)
 
-	if err := p.Subscriber.Subscribe(peer); err != nil {
+	if err := p.Subscriber.SubscribeVideo(peer); err != nil {
 		return err
 	}
 
@@ -134,7 +143,7 @@ func (p *PeerObj) handleLeaveEvent(event *sfu.PeerSignal_Event) error {
 	r := hub.Hub().GetRoom(roomID)
 	r.RemovePeer(peerID)
 
-	if err := p.Subscriber.Unsubscribe(peerID); err != nil {
+	if err := p.Subscriber.UnsubscribeVideo(peerID); err != nil {
 		return err
 	}
 
@@ -142,5 +151,6 @@ func (p *PeerObj) handleLeaveEvent(event *sfu.PeerSignal_Event) error {
 }
 
 func (p *PeerObj) handleRoomEndedEvent() {
+	// trigger to disconnect pc
 	p.Cancel()
 }

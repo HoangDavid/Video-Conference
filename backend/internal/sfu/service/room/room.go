@@ -11,8 +11,6 @@ import (
 
 type RoomObj struct {
 	*domain.RoomObj
-	joinChan  chan domain.Peer
-	leaveChan chan domain.Peer
 }
 
 func NewRoom(roomID string) domain.Room {
@@ -21,27 +19,30 @@ func NewRoom(roomID string) domain.Room {
 	interval := time.Duration(200 * time.Millisecond)
 	d := rtc.NewDetector(rCtx, interval, 5)
 
-	r := &domain.RoomObj{
-		ID:       roomID,
-		Peers:    make(map[string]domain.Peer),
-		Detector: d,
-		Ctx:      rCtx,
-		Cancel:   rCancel,
-	}
-
 	room := &RoomObj{
-		RoomObj: r,
+		RoomObj: &domain.RoomObj{
+			ID:       roomID,
+			Peers:    make(map[string]domain.Peer),
+			Detector: d,
+			Ctx:      rCtx,
+			Cancel:   rCancel,
+			JoinChan: make(chan domain.Peer, 64),
+		},
 	}
 
 	go room.forwardAudio()
 
+	// Add new room to hub
 	hub.Hub().AddRoom(roomID, room)
+
 	return room
 
 }
 
 func (r *RoomObj) Close() {
 	r.Cancel()
+	close(r.JoinChan)
+	hub.Hub().RemoveRoom(r.ID)
 }
 
 func (r *RoomObj) AddPeer(peerID string, peer domain.Peer) {
@@ -50,7 +51,9 @@ func (r *RoomObj) AddPeer(peerID string, peer domain.Peer) {
 
 	peer.Pub().AttachDetector(peerID, r.Detector)
 	r.Peers[peerID] = peer
-	r.joinChan <- peer
+
+	// trigger new peer join to subcriber audio
+	r.JoinChan <- peer
 }
 
 func (r *RoomObj) RemovePeer(peerID string) domain.Peer {
@@ -64,6 +67,8 @@ func (r *RoomObj) RemovePeer(peerID string) domain.Peer {
 	}
 
 	delete(r.Peers, peerID)
+
+	// trigger to find new active speaker
 	r.Detector.Remove(peerID)
 
 	return v
@@ -91,7 +96,12 @@ func (r *RoomObj) BroadCast(peerID string, event *sfu.PeerSignal_Event) {
 			continue
 		}
 
-		peer.EnqueueEvent(event)
+		select {
+		case <-r.Ctx.Done():
+			return
+		default:
+			peer.EnqueueEvent(event)
+		}
 	}
 }
 
@@ -113,7 +123,7 @@ func (r *RoomObj) forwardAudio() {
 		select {
 		case <-r.Ctx.Done():
 			return
-		case newPeer, ok := <-r.joinChan:
+		case newPeer, ok := <-r.JoinChan:
 			if !ok {
 				return
 			}

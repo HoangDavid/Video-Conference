@@ -14,10 +14,11 @@ func NewDetector(ctx context.Context, interval time.Duration, margin int) domain
 
 	d := &DetectorObj{
 		DetectorObj: &domain.DetectorObj{
-			Sum:    make(map[string]int),
-			Count:  make(map[string]int),
-			Winner: make(chan string, 1),
-			Margin: margin,
+			Sum:      make(map[string]int),
+			Count:    make(map[string]int),
+			Winner:   make(chan string, 1),
+			FindFlag: make(chan struct{}, 1),
+			Margin:   margin,
 		},
 	}
 
@@ -43,13 +44,17 @@ func (d *DetectorObj) Sample(id string, lvl int) {
 
 func (d *DetectorObj) Remove(id string) {
 	d.Mu.Lock()
+	defer d.Mu.Unlock()
+
 	delete(d.Sum, id)
 	delete(d.Count, id)
-	needEval := d.Current == id
-	d.Mu.Unlock()
 
-	if needEval {
-		d.findActiveSpeaker()
+	if d.Current == id {
+		d.Current = ""
+		select {
+		case d.FindFlag <- struct{}{}:
+		default:
+		}
 	}
 }
 
@@ -67,6 +72,8 @@ func (d *DetectorObj) loop(ctx context.Context, interval time.Duration) {
 			close(d.Winner)
 			return
 		case <-t.C:
+			d.findActiveSpeaker()
+		case <-d.FindFlag:
 			d.findActiveSpeaker()
 		}
 	}
@@ -102,6 +109,17 @@ func (d *DetectorObj) findActiveSpeaker() {
 		d.Count[id] = 0
 	}
 
+	//  if speaker left
+	if d.Current == "" && best != "" {
+		d.Current = best
+		select {
+		case d.Winner <- best:
+		default:
+		}
+		return
+	}
+
+	// update the new active speaker
 	if best != d.Current && bestAvg+d.Margin < curAvg {
 		d.Current = best
 		select {

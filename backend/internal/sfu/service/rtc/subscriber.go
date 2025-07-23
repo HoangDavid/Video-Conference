@@ -74,8 +74,8 @@ func NewSubscriber(ctx context.Context, sendQ chan *sfu.PeerSignal, log *slog.Lo
 
 			ActiveVideos: make(map[string]*webrtc.RTPTransceiver),
 
-			RecvSdp: make(chan *sfu.PeerSignal_Sdp),
-			RecvIce: make(chan *sfu.PeerSignal_Ice),
+			RecvSdp: make(chan *sfu.PeerSignal_Sdp, 64),
+			RecvIce: make(chan *sfu.PeerSignal_Ice, 64),
 		},
 	}, nil
 }
@@ -140,11 +140,17 @@ func (s *SubConn) Disconnect() error {
 }
 
 func (s *SubConn) EnqueueSdp(sdp *sfu.PeerSignal_Sdp) {
-	s.RecvSdp <- sdp
+	select {
+	case s.RecvSdp <- sdp:
+	default:
+	}
 }
 
 func (s *SubConn) EnqueueIce(ice *sfu.PeerSignal_Ice) {
-	s.RecvIce <- ice
+	select {
+	case s.RecvIce <- ice:
+	default:
+	}
 }
 
 // subscribe to remote peer video track
@@ -173,6 +179,7 @@ func (s *SubConn) UnsubscribeVideo(peerID string) error {
 
 	s.Mu.Lock()
 	videoT = s.ActiveVideos[peerID]
+	delete(s.ActiveVideos, peerID)
 	s.Mu.Unlock()
 
 	if videoT != nil {
@@ -182,7 +189,7 @@ func (s *SubConn) UnsubscribeVideo(peerID string) error {
 	}
 
 	// update active and idle video track map
-	go s.detachTrack(peerID, videoT)
+	go s.detachTrack(videoT)
 
 	return nil
 }
@@ -231,7 +238,7 @@ func (s *SubConn) attachTrack(peerID string, local *webrtc.TrackLocalStaticRTP, 
 }
 
 // dettach track
-func (s *SubConn) detachTrack(peerID string, tx *webrtc.RTPTransceiver) error {
+func (s *SubConn) detachTrack(tx *webrtc.RTPTransceiver) error {
 
 	if tx == nil {
 		return nil
@@ -245,7 +252,6 @@ func (s *SubConn) detachTrack(peerID string, tx *webrtc.RTPTransceiver) error {
 
 	s.Mu.Lock()
 	s.IdleVideos = append(s.IdleVideos, tx)
-	delete(s.ActiveVideos, peerID)
 	s.Mu.Unlock()
 
 	return nil

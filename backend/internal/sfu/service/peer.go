@@ -135,7 +135,17 @@ func (p *PeerObj) Disconnect() error {
 }
 
 func (p *PeerObj) EnqueueEvent(event *sfu.PeerSignal_Event) {
-	p.EventQ <- event
+	select {
+	case p.EventQ <- event:
+	default:
+	}
+}
+
+func (p *PeerObj) EnqueueSend(msg *sfu.PeerSignal) {
+	select {
+	case p.SendQ <- msg:
+	default:
+	}
 }
 
 func (p *PeerObj) sendCycle() error {

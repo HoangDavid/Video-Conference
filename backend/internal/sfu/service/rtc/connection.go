@@ -44,7 +44,7 @@ func NewPConn(sendQ chan *sfu.PeerSignal, log *slog.Logger, debounceInterval tim
 			PC:            pc,
 			AudioLevelURI: audioLevelURI,
 			Log:           log,
-			IceBuffers:    make(chan webrtc.ICECandidateInit),
+			IceBuffers:    make(chan webrtc.ICECandidateInit, 64),
 			SendQ:         sendQ,
 			DebounceTimer: &domain.DebounceTimer{
 				Interval: debounceInterval,
@@ -103,7 +103,7 @@ func (c *PConn) SendOffer() error {
 		},
 	}
 
-	c.SendQ <- r
+	c.enqueueSend(r)
 
 	return nil
 }
@@ -146,7 +146,7 @@ func (c *PConn) HandleOffer(sdp *sfu.PeerSignal_Sdp) error {
 		},
 	}
 
-	c.SendQ <- res
+	c.enqueueSend(res)
 
 	return nil
 }
@@ -190,7 +190,7 @@ func (c *PConn) HandleLocalIce(candidate *webrtc.ICECandidate) {
 		},
 	}
 
-	c.SendQ <- req
+	c.enqueueSend(req)
 }
 
 func (c *PConn) flushIce() {
@@ -208,6 +208,13 @@ func (c *PConn) flushIce() {
 		default:
 			return
 		}
+	}
+}
+
+func (c *PConn) enqueueSend(msg *sfu.PeerSignal) {
+	select {
+	case c.SendQ <- msg:
+	default:
 	}
 }
 

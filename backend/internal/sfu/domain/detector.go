@@ -12,11 +12,12 @@ type Detector interface {
 }
 
 type DetectorObj struct {
-	Mu      sync.Mutex
-	Sum     map[string]int
-	Count   map[string]int
-	Current string
-	Winner  chan string
-	Margin  int
-	Cancel  context.CancelFunc
+	Mu       sync.Mutex
+	Sum      map[string]int
+	Count    map[string]int
+	Current  string
+	Winner   chan string
+	Margin   int
+	FindFlag chan struct{}
+	Cancel   context.CancelFunc
 }
