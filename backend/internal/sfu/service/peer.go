@@ -201,6 +201,13 @@ func (p *PeerObj) handleActions(act *sfu.PeerSignal_Action) error {
 
 	case sfu.ActionType_END_ROOM:
 		p.handleEndRoom(roomID)
+
+	case sfu.ActionType_AUDIO_ON:
+	case sfu.ActionType_AUDIO_OFF:
+	case sfu.ActionType_VIDEO_ON:
+	case sfu.ActionType_VIDEO_OFF:
+	case sfu.ActionType_DUBBING_ON:
+	case sfu.ActionType_DUBBING_OFF:
 	}
 
 	return nil
@@ -228,6 +235,13 @@ func (p *PeerObj) handleEvents(evt *sfu.PeerSignal_Event) error {
 
 	case sfu.EventType_ROOM_ENEDED:
 		p.handleRoomEndedEvent()
+
+	case sfu.EventType_AUDIO_ENABLED:
+	case sfu.EventType_AUDIO_DISABLED:
+	case sfu.EventType_VIDEO_ENABLED:
+	case sfu.EventType_VIDEO_DISABLED:
+	case sfu.EventType_DUBBING_ENABLED:
+	case sfu.EventType_DUBBING_DISABLED:
 	}
 	return nil
 }

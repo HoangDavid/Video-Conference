@@ -3,7 +3,6 @@ package wsx
 import (
 	"encoding/json"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"time"
 
@@ -11,6 +10,7 @@ import (
 	"vidcall/pkg/logger"
 
 	"github.com/gorilla/websocket"
+	"golang.org/x/sync/errgroup"
 )
 
 type signal struct {
@@ -64,19 +64,27 @@ func HandleWS(w http.ResponseWriter, r *http.Request, sfuCLient sfu.SFUClient) {
 	log := logger.GetLog(ctx).With("layer", "transport")
 	conn, _ := upgrader.Upgrade(w, r, nil)
 
-	stream, _ := sfuCLient.Signal(ctx)
+	stream, err := sfuCLient.Signal(ctx)
+	if err != nil {
+		log.Error("unable to create stream to SFU")
+		return
+	}
 
-	go onListenClient(log, conn, stream)
+	g, _ := errgroup.WithContext(ctx)
 
-	// go onListenSFU(ctx, conn, stream)
+	g.Go(func() error { return onListenClient(conn, stream) })
+	g.Go(func() error { return onListenSFU(conn, stream) })
 
+	if err := g.Wait(); err != nil {
+		log.Error(fmt.Sprintf("websocket disconnected with error: %v", err))
+	}
 	// on websocket disconnect
 	stream.CloseSend()
 	CloseOne(conn, websocket.CloseNormalClosure, "")
 
 }
 
-func onListenClient(log *slog.Logger, conn *websocket.Conn, stream sfu.SFU_SignalClient) error {
+func onListenClient(conn *websocket.Conn, stream sfu.SFU_SignalClient) error {
 	var msg signal
 	for {
 		err := conn.ReadJSON(&msg)
@@ -93,7 +101,6 @@ func onListenClient(log *slog.Logger, conn *websocket.Conn, stream sfu.SFU_Signa
 			}
 
 			if err := stream.Send(sdp); err != nil {
-				log.Error("unable to send sdp to SFU")
 				return err
 			}
 
@@ -105,7 +112,6 @@ func onListenClient(log *slog.Logger, conn *websocket.Conn, stream sfu.SFU_Signa
 			}
 
 			if err := stream.Send(ice); err != nil {
-				log.Error("unable to send ice to SFU")
 				return err
 			}
 
@@ -117,7 +123,6 @@ func onListenClient(log *slog.Logger, conn *websocket.Conn, stream sfu.SFU_Signa
 			}
 
 			if err := stream.Send(action); err != nil {
-				log.Error("unable to send action to SFU")
 				return err
 			}
 		}
@@ -125,6 +130,43 @@ func onListenClient(log *slog.Logger, conn *websocket.Conn, stream sfu.SFU_Signa
 	}
 }
 
-func onListenSFU(log *slog.Logger, conn *websocket.Conn, stream sfu.SFU_SignalClient) error {
+func onListenSFU(conn *websocket.Conn, stream sfu.SFU_SignalClient) error {
+	for {
+		msg, err := stream.Recv()
+		if err != nil {
+			return err
+		}
+
+		switch pl := msg.Payload.(type) {
+		case *sfu.PeerSignal_Sdp:
+			sdp, err := handleSfuSDP(pl)
+			if err != nil {
+				return err
+			}
+
+			if err := conn.WriteJSON(sdp); err != nil {
+				return err
+			}
+
+		case *sfu.PeerSignal_Ice:
+			ice, err := handleSfuIce(pl)
+			if err != nil {
+				return err
+			}
+
+			if err := conn.WriteJSON(ice); err != nil {
+				return err
+			}
+		case *sfu.PeerSignal_Event:
+			event, err := handleSfuEvent(pl)
+			if err != nil {
+				return err
+			}
+
+			if err := conn.WriteJSON(event); err != nil {
+				return err
+			}
+		}
+	}
 
 }

@@ -14,23 +14,27 @@ enum ActionType {
     END_ROOM = 1;
     JOIN = 2;
     LEAVE = 3;
-    AUDIO = 4;
-    VIDEO = 5;
-    SUBTITLE = 6;
-    DUB = 7;
+    AUDIO_ON = 4;
+    AUDIO_OFF = 5;
+    VIDEO_ON = 6;
+    VIDEO_OFF = 7;
+    DUBBING_ON = 8;
+    DUBBING_OFF = 9;
 }
 
 // Event Type
 enum EventType {
     ROOM_ACTIVE = 0;
     ROOM_INACTIVE = 1;
-    ROOM_ENEDED = 3;
-    JOIN_EVENT = 4;
-    LEAVE_EVENT = 5;
-    AUDIO_ON = 6;
-    AUDIO_OFF = 7;
-    VIDEO_ON = 8;
-    VIDEO_OFF = 9;
+    ROOM_ENEDED = 2;
+    JOIN_EVENT = 3;
+    LEAVE_EVENT = 4;
+    AUDIO_ENABLED = 5;
+    AUDIO_DISABLED = 6;
+    VIDEO_ENABLED = 7;
+    VIDEO_DISABLED = 8;
+    DUBBING_ENABLED = 9;
+    DUBBING_DISABLED = 10;
 }
 
 // Peer Connection Type

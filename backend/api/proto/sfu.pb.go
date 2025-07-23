@@ -70,14 +70,16 @@ func (SdpType) EnumDescriptor() ([]byte, []int) {
 type ActionType int32
 
 const (
-	ActionType_START_ROOM ActionType = 0
-	ActionType_END_ROOM   ActionType = 1
-	ActionType_JOIN       ActionType = 2
-	ActionType_LEAVE      ActionType = 3
-	ActionType_AUDIO      ActionType = 4
-	ActionType_VIDEO      ActionType = 5
-	ActionType_SUBTITLE   ActionType = 6
-	ActionType_DUB        ActionType = 7
+	ActionType_START_ROOM  ActionType = 0
+	ActionType_END_ROOM    ActionType = 1
+	ActionType_JOIN        ActionType = 2
+	ActionType_LEAVE       ActionType = 3
+	ActionType_AUDIO_ON    ActionType = 4
+	ActionType_AUDIO_OFF   ActionType = 5
+	ActionType_VIDEO_ON    ActionType = 6
+	ActionType_VIDEO_OFF   ActionType = 7
+	ActionType_DUBBING_ON  ActionType = 8
+	ActionType_DUBBING_OFF ActionType = 9
 )
 
 // Enum value maps for ActionType.
@@ -87,20 +89,24 @@ var (
 		1: "END_ROOM",
 		2: "JOIN",
 		3: "LEAVE",
-		4: "AUDIO",
-		5: "VIDEO",
-		6: "SUBTITLE",
-		7: "DUB",
+		4: "AUDIO_ON",
+		5: "AUDIO_OFF",
+		6: "VIDEO_ON",
+		7: "VIDEO_OFF",
+		8: "DUBBING_ON",
+		9: "DUBBING_OFF",
 	}
 	ActionType_value = map[string]int32{
-		"START_ROOM": 0,
-		"END_ROOM":   1,
-		"JOIN":       2,
-		"LEAVE":      3,
-		"AUDIO":      4,
-		"VIDEO":      5,
-		"SUBTITLE":   6,
-		"DUB":        7,
+		"START_ROOM":  0,
+		"END_ROOM":    1,
+		"JOIN":        2,
+		"LEAVE":       3,
+		"AUDIO_ON":    4,
+		"AUDIO_OFF":   5,
+		"VIDEO_ON":    6,
+		"VIDEO_OFF":   7,
+		"DUBBING_ON":  8,
+		"DUBBING_OFF": 9,
 	}
 )
 
@@ -135,40 +141,46 @@ func (ActionType) EnumDescriptor() ([]byte, []int) {
 type EventType int32
 
 const (
-	EventType_ROOM_ACTIVE   EventType = 0
-	EventType_ROOM_INACTIVE EventType = 1
-	EventType_ROOM_ENEDED   EventType = 3
-	EventType_JOIN_EVENT    EventType = 4
-	EventType_LEAVE_EVENT   EventType = 5
-	EventType_AUDIO_ON      EventType = 6
-	EventType_AUDIO_OFF     EventType = 7
-	EventType_VIDEO_ON      EventType = 8
-	EventType_VIDEO_OFF     EventType = 9
+	EventType_ROOM_ACTIVE      EventType = 0
+	EventType_ROOM_INACTIVE    EventType = 1
+	EventType_ROOM_ENEDED      EventType = 2
+	EventType_JOIN_EVENT       EventType = 3
+	EventType_LEAVE_EVENT      EventType = 4
+	EventType_AUDIO_ENABLED    EventType = 5
+	EventType_AUDIO_DISABLED   EventType = 6
+	EventType_VIDEO_ENABLED    EventType = 7
+	EventType_VIDEO_DISABLED   EventType = 8
+	EventType_DUBBING_ENABLED  EventType = 9
+	EventType_DUBBING_DISABLED EventType = 10
 )
 
 // Enum value maps for EventType.
 var (
 	EventType_name = map[int32]string{
-		0: "ROOM_ACTIVE",
-		1: "ROOM_INACTIVE",
-		3: "ROOM_ENEDED",
-		4: "JOIN_EVENT",
-		5: "LEAVE_EVENT",
-		6: "AUDIO_ON",
-		7: "AUDIO_OFF",
-		8: "VIDEO_ON",
-		9: "VIDEO_OFF",
+		0:  "ROOM_ACTIVE",
+		1:  "ROOM_INACTIVE",
+		2:  "ROOM_ENEDED",
+		3:  "JOIN_EVENT",
+		4:  "LEAVE_EVENT",
+		5:  "AUDIO_ENABLED",
+		6:  "AUDIO_DISABLED",
+		7:  "VIDEO_ENABLED",
+		8:  "VIDEO_DISABLED",
+		9:  "DUBBING_ENABLED",
+		10: "DUBBING_DISABLED",
 	}
 	EventType_value = map[string]int32{
-		"ROOM_ACTIVE":   0,
-		"ROOM_INACTIVE": 1,
-		"ROOM_ENEDED":   3,
-		"JOIN_EVENT":    4,
-		"LEAVE_EVENT":   5,
-		"AUDIO_ON":      6,
-		"AUDIO_OFF":     7,
-		"VIDEO_ON":      8,
-		"VIDEO_OFF":     9,
+		"ROOM_ACTIVE":      0,
+		"ROOM_INACTIVE":    1,
+		"ROOM_ENEDED":      2,
+		"JOIN_EVENT":       3,
+		"LEAVE_EVENT":      4,
+		"AUDIO_ENABLED":    5,
+		"AUDIO_DISABLED":   6,
+		"VIDEO_ENABLED":    7,
+		"VIDEO_DISABLED":   8,
+		"DUBBING_ENABLED":  9,
+		"DUBBING_DISABLED": 10,
 	}
 )
 
@@ -656,29 +668,35 @@ const file_api_proto_sfu_proto_rawDesc = "" +
 	"\aSdpType\x12\t\n" +
 	"\x05OFFER\x10\x00\x12\n" +
 	"\n" +
-	"\x06ANSWER\x10\x01*l\n" +
+	"\x06ANSWER\x10\x01*\x9a\x01\n" +
 	"\n" +
 	"ActionType\x12\x0e\n" +
 	"\n" +
 	"START_ROOM\x10\x00\x12\f\n" +
 	"\bEND_ROOM\x10\x01\x12\b\n" +
 	"\x04JOIN\x10\x02\x12\t\n" +
-	"\x05LEAVE\x10\x03\x12\t\n" +
-	"\x05AUDIO\x10\x04\x12\t\n" +
-	"\x05VIDEO\x10\x05\x12\f\n" +
-	"\bSUBTITLE\x10\x06\x12\a\n" +
-	"\x03DUB\x10\a*\x9b\x01\n" +
+	"\x05LEAVE\x10\x03\x12\f\n" +
+	"\bAUDIO_ON\x10\x04\x12\r\n" +
+	"\tAUDIO_OFF\x10\x05\x12\f\n" +
+	"\bVIDEO_ON\x10\x06\x12\r\n" +
+	"\tVIDEO_OFF\x10\a\x12\x0e\n" +
+	"\n" +
+	"DUBBING_ON\x10\b\x12\x0f\n" +
+	"\vDUBBING_OFF\x10\t*\xda\x01\n" +
 	"\tEventType\x12\x0f\n" +
 	"\vROOM_ACTIVE\x10\x00\x12\x11\n" +
 	"\rROOM_INACTIVE\x10\x01\x12\x0f\n" +
-	"\vROOM_ENEDED\x10\x03\x12\x0e\n" +
+	"\vROOM_ENEDED\x10\x02\x12\x0e\n" +
 	"\n" +
-	"JOIN_EVENT\x10\x04\x12\x0f\n" +
-	"\vLEAVE_EVENT\x10\x05\x12\f\n" +
-	"\bAUDIO_ON\x10\x06\x12\r\n" +
-	"\tAUDIO_OFF\x10\a\x12\f\n" +
-	"\bVIDEO_ON\x10\b\x12\r\n" +
-	"\tVIDEO_OFF\x10\t*.\n" +
+	"JOIN_EVENT\x10\x03\x12\x0f\n" +
+	"\vLEAVE_EVENT\x10\x04\x12\x11\n" +
+	"\rAUDIO_ENABLED\x10\x05\x12\x12\n" +
+	"\x0eAUDIO_DISABLED\x10\x06\x12\x11\n" +
+	"\rVIDEO_ENABLED\x10\a\x12\x12\n" +
+	"\x0eVIDEO_DISABLED\x10\b\x12\x13\n" +
+	"\x0fDUBBING_ENABLED\x10\t\x12\x14\n" +
+	"\x10DUBBING_DISABLED\x10\n" +
+	"*.\n" +
 	"\x06PcType\x12\x12\n" +
 	"\x0ePC_UNSPECIFIED\x10\x00\x12\a\n" +
 	"\x03PUB\x10\x01\x12\a\n" +

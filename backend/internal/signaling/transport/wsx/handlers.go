@@ -10,7 +10,6 @@ func handleClientSDP(payload json.RawMessage) (*sfu.PeerSignal, error) {
 		sdp     sdp
 		pcType  sfu.PcType
 		sdpType sfu.SdpType
-		signal  *sfu.PeerSignal
 	)
 
 	if err := json.Unmarshal(payload, &sdp); err != nil {
@@ -35,7 +34,7 @@ func handleClientSDP(payload json.RawMessage) (*sfu.PeerSignal, error) {
 
 	}
 
-	signal = &sfu.PeerSignal{
+	signal := &sfu.PeerSignal{
 		Payload: &sfu.PeerSignal_Sdp{
 			Sdp: &sfu.Sdp{
 				Pc:   pcType,
@@ -52,7 +51,6 @@ func handleClientIce(payload json.RawMessage) (*sfu.PeerSignal, error) {
 	var (
 		ice    ice
 		pcType sfu.PcType
-		signal *sfu.PeerSignal
 	)
 
 	if err := json.Unmarshal(payload, &ice); err != nil {
@@ -68,7 +66,7 @@ func handleClientIce(payload json.RawMessage) (*sfu.PeerSignal, error) {
 		pcType = sfu.PcType_PC_UNSPECIFIED
 	}
 
-	signal = &sfu.PeerSignal{
+	signal := &sfu.PeerSignal{
 		Payload: &sfu.PeerSignal_Ice{
 			Ice: &sfu.IceCandidate{
 				Pc:               pcType,
@@ -87,7 +85,6 @@ func handleClientAction(payload json.RawMessage) (*sfu.PeerSignal, error) {
 	var (
 		action  action
 		actType sfu.ActionType
-		signal  *sfu.PeerSignal
 	)
 
 	if err := json.Unmarshal(payload, &action); err != nil {
@@ -103,9 +100,21 @@ func handleClientAction(payload json.RawMessage) (*sfu.PeerSignal, error) {
 		actType = sfu.ActionType_LEAVE
 	case "end_room":
 		actType = sfu.ActionType_END_ROOM
+	case "audio_on":
+		actType = sfu.ActionType_AUDIO_ON
+	case "audio_off":
+		actType = sfu.ActionType_AUDIO_OFF
+	case "video_on":
+		actType = sfu.ActionType_VIDEO_ON
+	case "video_off":
+		actType = sfu.ActionType_VIDEO_OFF
+	case "dubbing_on":
+		actType = sfu.ActionType_DUBBING_ON
+	case "dubbing_off":
+		actType = sfu.ActionType_DUBBING_OFF
 	}
 
-	signal = &sfu.PeerSignal{
+	signal := &sfu.PeerSignal{
 		Payload: &sfu.PeerSignal_Action{
 			Action: &sfu.Action{
 				Peerid: action.PeerID,
@@ -116,4 +125,126 @@ func handleClientAction(payload json.RawMessage) (*sfu.PeerSignal, error) {
 	}
 
 	return signal, nil
+}
+
+func handleSfuSDP(msg *sfu.PeerSignal_Sdp) (*signal, error) {
+	var (
+		pcType  string
+		sdpType string
+	)
+
+	switch msg.Sdp.Pc {
+	case sfu.PcType_PUB:
+		pcType = "pub"
+	case sfu.PcType_SUB:
+		pcType = "sub"
+	case sfu.PcType_PC_UNSPECIFIED:
+		pcType = "unspecified"
+	}
+
+	switch msg.Sdp.Type {
+	case sfu.SdpType_OFFER:
+		sdpType = "offer"
+	case sfu.SdpType_ANSWER:
+		sdpType = "answer"
+	}
+
+	sdp := sdp{
+		Pc:   pcType,
+		Type: sdpType,
+		SDP:  msg.Sdp.Sdp,
+	}
+
+	raw, err := json.Marshal(sdp)
+	if err != nil {
+		return nil, err
+	}
+
+	s := &signal{
+		Type:    "sdp",
+		Payload: raw,
+	}
+
+	return s, nil
+
+}
+
+func handleSfuIce(msg *sfu.PeerSignal_Ice) (*signal, error) {
+	var pcType string
+
+	switch msg.Ice.Pc {
+	case sfu.PcType_PUB:
+		pcType = "pub"
+	case sfu.PcType_SUB:
+		pcType = "sub"
+	case sfu.PcType_PC_UNSPECIFIED:
+		pcType = "unspecified"
+	}
+
+	ice := ice{
+		Pc:                pcType,
+		Candidate:         msg.Ice.Candidate,
+		SdpMid:            msg.Ice.SdpMid,
+		SdpMLineIndex:     msg.Ice.SdpMlineIndex,
+		UsernameFragmment: msg.Ice.UsernameFragment,
+	}
+
+	raw, err := json.Marshal(ice)
+	if err != nil {
+		return nil, err
+	}
+
+	s := &signal{
+		Type:    "ice",
+		Payload: raw,
+	}
+
+	return s, nil
+
+}
+
+func handleSfuEvent(msg *sfu.PeerSignal_Event) (*signal, error) {
+	var eventType string
+
+	switch msg.Event.Type {
+	case sfu.EventType_ROOM_ACTIVE:
+		eventType = "room_active"
+	case sfu.EventType_ROOM_INACTIVE:
+		eventType = "room_inactive"
+	case sfu.EventType_ROOM_ENEDED:
+		eventType = "room_ended"
+	case sfu.EventType_JOIN_EVENT:
+		eventType = "join_event"
+	case sfu.EventType_LEAVE_EVENT:
+		eventType = "leave_event"
+	case sfu.EventType_AUDIO_ENABLED:
+		eventType = "audio_enabled"
+	case sfu.EventType_AUDIO_DISABLED:
+		eventType = "audio_disabled"
+	case sfu.EventType_VIDEO_ENABLED:
+		eventType = "video_enabled"
+	case sfu.EventType_VIDEO_DISABLED:
+		eventType = "video_disabled"
+	case sfu.EventType_DUBBING_ENABLED:
+		eventType = "dubbing_enabled"
+	case sfu.EventType_DUBBING_DISABLED:
+		eventType = "dubbing disabled"
+	}
+
+	event := event{
+		PeerID: msg.Event.Peerid,
+		RoomID: msg.Event.Roomid,
+		Type:   eventType,
+	}
+	raw, err := json.Marshal(event)
+	if err != nil {
+		return nil, err
+	}
+
+	s := &signal{
+		Type:    "event",
+		Payload: raw,
+	}
+
+	return s, nil
 }
