@@ -85,6 +85,7 @@ func handleClientAction(payload json.RawMessage) (*sfu.PeerSignal, error) {
 	var (
 		action  action
 		actType sfu.ActionType
+		role    sfu.PeerRole
 	)
 
 	if err := json.Unmarshal(payload, &action); err != nil {
@@ -114,12 +115,22 @@ func handleClientAction(payload json.RawMessage) (*sfu.PeerSignal, error) {
 		actType = sfu.ActionType_DUBBING_OFF
 	}
 
+	switch action.Role {
+	case "human":
+		role = sfu.PeerRole_ROLE_HUMAN
+	case "bot":
+		role = sfu.PeerRole_ROLE_BOT
+	case "unspecfied":
+		role = sfu.PeerRole_ROLE_UNSPECIFIED
+	}
+
 	signal := &sfu.PeerSignal{
 		Payload: &sfu.PeerSignal_Action{
 			Action: &sfu.Action{
 				Peerid: action.PeerID,
 				Roomid: action.RoomID,
 				Type:   actType,
+				Role:   role,
 			},
 		},
 	}
@@ -225,10 +236,6 @@ func handleSfuEvent(msg *sfu.PeerSignal_Event) (*signal, error) {
 		eventType = "video_enabled"
 	case sfu.EventType_VIDEO_DISABLED:
 		eventType = "video_disabled"
-	case sfu.EventType_DUBBING_ENABLED:
-		eventType = "dubbing_enabled"
-	case sfu.EventType_DUBBING_DISABLED:
-		eventType = "dubbing disabled"
 	}
 
 	event := event{

@@ -1,5 +1,5 @@
 import { useEffect, useRef} from "react";
-import type { Signal, Ice} from "./types";
+import type { Signal, Ice} from "./webrtc";
 
 
 
@@ -9,8 +9,6 @@ export default function OnePeerClient() {
 
   const localRef  = useRef<HTMLVideoElement>(null);
   const remoteRef = useRef<HTMLVideoElement>(null);
-
-  const statsTimer  = useRef<number | null>(null); 
 
   const pending: RTCIceCandidateInit[] = [];
 
@@ -98,29 +96,6 @@ export default function OnePeerClient() {
         }
       };
 
-      statsTimer.current = window.setInterval(() => {
-        if (!pc.current) return;
-        pc.current.getStats().then(stats => {
-          stats.forEach(r => {
-            if (r.type === "outbound-rtp" && r.kind === "video") {
-              console.log(`[stats] video framesSent=${r.framesSent}`);
-            }
-            if (r.type === "outbound-rtp" && r.kind === "audio") {
-              console.log(`[stats] audio packetsSent=${r.packetsSent}`);
-            }
-
-            /* ►►  inbound (NEW — receiving side)  ◄◄ */
-            if (r.type === "inbound-rtp" && r.kind === "video") {
-              console.log(`[recv]  video framesDecoded  = ${r.framesDecoded}`);
-              console.log(`[recv]  video packetsLost    = ${r.packetsLost}`);
-            }
-            if (r.type === "inbound-rtp" && r.kind === "audio") {
-              console.log(`[recv]  audio packetsReceived = ${r.packetsReceived}`);
-              console.log(`[recv]  audio jitter         = ${r.jitter}`);
-            }
-          });
-        });
-      }, 2_000);
 
       pc.current!.onconnectionstatechange = () =>
         console.log("PC state →", pc.current!.connectionState)
@@ -143,7 +118,6 @@ export default function OnePeerClient() {
     })();
 
     return () => {
-      if (statsTimer.current !== null) clearInterval(statsTimer.current)
       pc.current?.close();
       ws.current?.close();
     };

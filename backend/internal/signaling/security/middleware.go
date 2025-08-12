@@ -29,6 +29,8 @@ func RequireAuth(i *Issuer) func(http.HandlerFunc) http.HandlerFunc {
 
 			raw := cookie.Value
 
+			// TODO: add header token here for ws bot access
+
 			claims, err := i.Parse(raw)
 			if err != nil {
 				utils.Error(w, http.StatusUnauthorized, "unathorized")

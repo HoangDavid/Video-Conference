@@ -36,6 +36,7 @@ type action struct {
 	PeerID string `json:"peerID"`
 	RoomID string `json:"roomID"`
 	Type   string `json:"type"`
+	Role   string `json:"role"`
 }
 
 type event struct {

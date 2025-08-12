@@ -185,6 +185,9 @@ func (p *PeerObj) handleActions(act *sfu.PeerSignal_Action) error {
 	actType := act.Action.Type
 	roomID := act.Action.Roomid
 
+	// TODO: attach role here when get human/bot peer
+	role := act.Action.Role
+
 	if p.ID == "" {
 		p.ID = act.Action.Peerid
 	}
@@ -240,8 +243,6 @@ func (p *PeerObj) handleEvents(evt *sfu.PeerSignal_Event) error {
 	case sfu.EventType_AUDIO_DISABLED:
 	case sfu.EventType_VIDEO_ENABLED:
 	case sfu.EventType_VIDEO_DISABLED:
-	case sfu.EventType_DUBBING_ENABLED:
-	case sfu.EventType_DUBBING_DISABLED:
 	}
 	return nil
 }

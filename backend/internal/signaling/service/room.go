@@ -48,8 +48,3 @@ func NewRoom(ctx context.Context, duration time.Duration, name string) (*domain.
 
 	return &room, host_token, nil
 }
-
-func Lobby(ctx context.Context, roomID string) {
-	// TODO: wait for room active
-	// TODO: allow to leave lobby
-}

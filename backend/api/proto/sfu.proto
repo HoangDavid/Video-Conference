@@ -33,8 +33,6 @@ enum EventType {
     AUDIO_DISABLED = 6;
     VIDEO_ENABLED = 7;
     VIDEO_DISABLED = 8;
-    DUBBING_ENABLED = 9;
-    DUBBING_DISABLED = 10;
 }
 
 // Peer Connection Type
@@ -44,11 +42,19 @@ enum PcType {
     SUB = 2;
 }
 
+// Role type
+enum PeerRole {
+    ROLE_UNSPECIFIED = 0;
+    ROLE_HUMAN = 1;
+    ROLE_BOT = 2;
+}
+
 // Action
 message Action {
     string roomid = 1;
     string peerid = 2;
     ActionType type = 3;
+    PeerRole role = 4;
 }
 
 message Event {
