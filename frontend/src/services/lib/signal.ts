@@ -4,6 +4,7 @@ import Denque from "denque"
 export class SignalClient {
     private ws: WebSocket;
     private queue = new Denque<Signal>();
+
     private send(msg: Signal) {
         if (this.ws.readyState === WebSocket.OPEN) {
             this.ws.send(JSON.stringify(msg));
@@ -37,6 +38,7 @@ export class SignalClient {
                 case "sdp": this.onSdp?.(msg.payload); break;
                 case "ice": this.onIce?.(msg.payload); break;
                 case "event": this.onEvent?.(msg.payload); break;
+                default:
             }
         }
     }
@@ -61,5 +63,25 @@ export class SignalClient {
         this.send({type: "action", payload:action})
     }
 
+    close(code: number = 1000, reason: string= "client shutdown"): void {
+        
+        if (this.ws.readyState === WebSocket.CLOSED) {
+            this.cleanup()
+            return;
+        } else if (this.ws.readyState === WebSocket.CONNECTING || this.ws.readyState === WebSocket.OPEN) {
+            this.ws.close(code, reason);
+            this.cleanup()
+        }
+    }
+
+    private cleanup() {
+        this.ws.onopen = null;
+        this.ws.onmessage = null;
+        this.ws.onclose = null;
+        this.ws.onerror = null;
+
+        while (this.queue.length) this.queue.shift();
+
+    }
 
 }

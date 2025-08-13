@@ -44,10 +44,13 @@ func Execute() {
 	sfuClient := sfu.NewSFUClient(sfuConn)
 
 	// create new room and auth
-	mux.HandleFunc("GET /rooms/new/{duration}", security.WithIssuer(issuer)(httpx.HandleCreateRoom))
-	mux.HandleFunc("POST /rooms/{room_id}/auth", security.WithIssuer(issuer)(httpx.HandleAuth))
+	mux.HandleFunc("GET /api/rooms/new/{duration}", security.WithIssuer(issuer)(httpx.HandleCreateRoom))
+	mux.HandleFunc("POST /api/rooms/{room_id}/auth", security.WithIssuer(issuer)(httpx.HandleAuth))
 
 	// secured endpoints
+	mux.HandleFunc("GET /api/me", security.RequireAuth(issuer)(func(w http.ResponseWriter, r *http.Request) {
+		httpx.HandleClaims(w, r)
+	}))
 	// mux.HandleFunc("GET /ws", security.RequireAuth(issuer)(func(w http.ResponseWriter, r *http.Request) {
 	// 	transport.HandleWS(w, r, sfuClient) }))
 	mux.HandleFunc("GET /ws", func(w http.ResponseWriter, r *http.Request) {

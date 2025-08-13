@@ -37,6 +37,17 @@
   padding: 2em;
 }
 
+.box {
+  border: grey 1px solid;
+  border-radius: 15px;
+  cursor: pointer;
+}
+
+.box:hover {
+  border: lightcoral 1.5px solid;
+  box-shadow: 0 6px 16px rgba(0,0,0,.08);
+}
+
 .read-the-docs {
   color: #888;
 }

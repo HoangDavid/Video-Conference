@@ -3,3 +3,5 @@
 /backend/dev.key
 /backend/dev.pem
 /backend/cookiejar.txt
+
+/frontend/.env

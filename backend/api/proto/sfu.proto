@@ -43,7 +43,7 @@ enum PcType {
 }
 
 // Role type
-enum PeerRole {
+enum RoleType {
     ROLE_UNSPECIFIED = 0;
     ROLE_HUMAN = 1;
     ROLE_BOT = 2;
@@ -54,7 +54,7 @@ message Action {
     string roomid = 1;
     string peerid = 2;
     ActionType type = 3;
-    PeerRole role = 4;
+    RoleType role = 4;
 }
 
 message Event {

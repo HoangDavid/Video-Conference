@@ -5,18 +5,17 @@ import (
 	"time"
 
 	"vidcall/internal/signaling/domain"
+	"vidcall/internal/signaling/security"
 	"vidcall/internal/signaling/service"
 	"vidcall/pkg/logger"
 	"vidcall/pkg/utils"
 )
 
-// /start_room/{duration}
 func HandleCreateRoom(w http.ResponseWriter, r *http.Request) {
 
 	type resp struct {
 		RoomID string `json:"roomID"`
 		Pin    string `json:"pin"`
-		Token  string `json:"token"`
 	}
 
 	ctx := r.Context()
@@ -43,11 +42,9 @@ func HandleCreateRoom(w http.ResponseWriter, r *http.Request) {
 		&resp{
 			RoomID: room.RoomID,
 			Pin:    room.Pin,
-			Token:  host_token,
 		})
 }
 
-// /rooms/{room_id}/auth
 func HandleAuth(w http.ResponseWriter, r *http.Request) {
 
 	var req struct {
@@ -69,7 +66,6 @@ func HandleAuth(w http.ResponseWriter, r *http.Request) {
 	switch err {
 	case nil:
 		utils.Cookie(w, token, "/")
-		utils.Respond(w, http.StatusOK, map[string]string{"token": token})
 	case domain.ErrBadPin:
 		utils.Error(w, http.StatusUnauthorized, "unathorized")
 	case domain.ErrNotFound:
@@ -78,4 +74,28 @@ func HandleAuth(w http.ResponseWriter, r *http.Request) {
 		utils.Error(w, http.StatusInternalServerError, "internal error")
 	}
 
+}
+
+func HandleClaims(w http.ResponseWriter, r *http.Request) {
+	type resp struct {
+		Name   string `json:"name"`
+		ID     string `json:"ID"`
+		RoomID string `json:"roomID"`
+		Role   string `json:"role"`
+	}
+
+	claims := security.ClaimsFrom(r.Context())
+
+	if claims == nil {
+		utils.Error(w, http.StatusUnauthorized, "unathorized")
+		return
+	}
+
+	utils.Respond(w, http.StatusCreated,
+		&resp{
+			Name:   claims.Name,
+			ID:     claims.ID,
+			RoomID: claims.RoomID,
+			Role:   claims.ID,
+		})
 }

@@ -186,7 +186,7 @@ func (p *PeerObj) handleActions(act *sfu.PeerSignal_Action) error {
 	roomID := act.Action.Roomid
 
 	// TODO: attach role here when get human/bot peer
-	role := act.Action.Role
+	_ = act.Action.Role
 
 	if p.ID == "" {
 		p.ID = act.Action.Peerid

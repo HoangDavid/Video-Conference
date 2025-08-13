@@ -1,21 +1,22 @@
+import type { Room } from "../types/room";
 
-export default async function create_meeting(userName: string, duration: string){
-    
-    const base_url = import.meta.env.VITE_SIGNALING_URL
+export default async function create_meeting(userName: string, duration: string): Promise<Room | null>{
 
-    try{
-        await fetch(`https://${base_url}/rooms/new/${duration}?name=${encodeURIComponent(userName)}`,
-            {
-                method: "GET",
-                credentials: "include"
-            }
-        );
-    }catch (e) {
-        console.error(e)
+    const res =  await fetch(
+        `/api/rooms/new/${duration}?name=${encodeURIComponent(userName)}`,
+        {
+            method: "GET",
+            credentials: "include"
+        }
+    );
+
+    if (!res.ok){
+        const msg = await res.text().catch(() => "");
+        console.log(`HTTP ${res.status} ${msg}`)
+        return null
     }
 
-    // TODO: get a connetion to websocket here
-    
+    const payload = (await res.json()) as Room;
 
-    return 
+    return payload
 }
