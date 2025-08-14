@@ -44,9 +44,10 @@ function App() {
     setLoading(true);
     if (await authenticate(userName, roomID, pin)) {
       if (!await join_meeting()) {
-        toast.error("Unable to join room");
+        toast.error("Unable to join meeting");
         setLoading(false);
       }
+
     }else {
       toast.error("Invalid room ID and/or pin");
       setLoading(false);

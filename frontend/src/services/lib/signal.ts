@@ -1,8 +1,10 @@
-import type {Signal, Sdp, Ice, PeerAction, PeerEvent, PcType, SdpType} from "../../types/signal";
+import type { Claims } from "../../types/claims";
+import type {Signal, Sdp, Ice, PeerEvent, PcType, SdpType, ActionType, PeerAction} from "../../types/signal";
 import Denque from "denque"
 
 export class SignalClient {
-    private ws: WebSocket;
+    private signal_url: string;
+    private ws!: WebSocket;
     private queue = new Denque<Signal>();
 
     private send(msg: Signal) {
@@ -13,35 +15,64 @@ export class SignalClient {
         }
     }
 
-    onClose?: (ev: CloseEvent) => void;
-    onError?: (ev: Event) => void;
+    private _onClose?: (ev: CloseEvent) => void;
+    private _onError?: (ev: Event) => void;
+    private _onSdp?: (payload: Sdp) => void;
+    private _onIce?: (payload: Ice) => void;
 
-    onSdp?: (payload: Sdp) => void;
-    onIce?: (payload: Ice) => void;
-    onEvent?: (payload: PeerEvent) => void;
+    // Allow multiple event callbacks
+    private _onEventSubs = new Set<(e: PeerEvent) => void>()
     
     
     constructor(ws_url: string) {
-        this.ws = new WebSocket(ws_url);
+        this.signal_url = ws_url;
+    }
+
+    connect(){
+        this.ws = new WebSocket(this.signal_url);
         this.ws.onopen = () => {
             while (this.queue.length) {
                 this.ws.send(JSON.stringify(this.queue.shift()!));
             }
         };
 
-        this.ws.onclose = (ev) => this.onClose?.(ev);
-        this.ws.onerror = (ev) => this.onError?.(ev);
+        this.ws.onclose = (ev) => this._onClose?.(ev);
+        this.ws.onerror = (ev) => this._onError?.(ev);
 
         this.ws.onmessage = (ev) => {
             const msg = JSON.parse(ev.data) as Signal;
             switch (msg.type) {
-                case "sdp": this.onSdp?.(msg.payload); break;
-                case "ice": this.onIce?.(msg.payload); break;
-                case "event": this.onEvent?.(msg.payload); break;
+                case "sdp": this._onSdp?.(msg.payload); break;
+                case "ice": this._onIce?.(msg.payload); break;
+                case "event": 
+                    for (const cb of this._onEventSubs) {
+                        try {cb(msg.payload);}catch(e) {console.error(e)}
+                    }
+                    break;
+
                 default:
             }
         }
     }
+
+    close(code: number = 1000, reason: string= "client shutdown"): void {
+        
+        if (this.ws.readyState === WebSocket.CLOSED) {
+            this.cleanup()
+            return;
+        } else if (this.ws.readyState === WebSocket.CONNECTING || this.ws.readyState === WebSocket.OPEN) {
+            this.ws.close(code, reason);
+            this.cleanup()
+        }
+    }
+    
+    // atttach functions
+    onClose(fn: (ev: CloseEvent) => void) {this._onClose = fn};
+    onError(fn: (ev: Event) => void) {this._onError = fn};
+    onSdp(fn: (sdp: Sdp) => void) {this._onSdp = fn};    
+    onIce(fn: (ice: Ice) => void) {this._onIce = fn};
+    onEvent(fn: (e: PeerEvent) => void) {this._onEventSubs.add(fn); return () => this._onEventSubs.delete(fn)};
+
 
     sendSdp(pc: PcType, type: SdpType, sdp: string) {
         this.send({type: "sdp", payload: {pc, type, sdp}})
@@ -59,19 +90,15 @@ export class SignalClient {
         this.send({type: "ice", payload})
     }
 
-    sendAction(action: PeerAction) {
-        this.send({type: "action", payload:action})
-    }
+    sendAction(claims: Claims, action: ActionType) {
+        const payload: PeerAction = {
+            peerID: claims.ID,
+            roomID: claims.roomID,
+            type: action,
+            role: claims.role,
+        };
 
-    close(code: number = 1000, reason: string= "client shutdown"): void {
-        
-        if (this.ws.readyState === WebSocket.CLOSED) {
-            this.cleanup()
-            return;
-        } else if (this.ws.readyState === WebSocket.CONNECTING || this.ws.readyState === WebSocket.OPEN) {
-            this.ws.close(code, reason);
-            this.cleanup()
-        }
+        this.send({type: "action", payload});
     }
 
     private cleanup() {

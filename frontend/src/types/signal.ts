@@ -7,7 +7,7 @@ export type Signal =
 
 export type SdpType = "offer" | "answer"
 export type PcType = "pub" | "sub" | "pc_unspecified"
-export type RoleType = "role_human" | "role_bot" | "role_unspecified"
+export type RoleType = "host" | "guest" | "bot" | "role_unspecified"
 export type ActionType = "start_room" | "end_room" | "join" | "leave" | "audio_on" | "audio_off" | 
         "video_on" | "video_off" | "dubbing_on" | "dubbing_off"
 export type EventType = "room_active" | "room_inactive" | "room_ended" | "join_event" | "leave_event" |

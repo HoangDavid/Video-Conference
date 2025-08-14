@@ -1,12 +1,13 @@
 
+
 export class RtcClient {
     readonly pc: RTCPeerConnection;
     readonly remoteStream = new MediaStream()
 
     private pendingIce: RTCIceCandidateInit[] = []
 
-    onIce?: (ice: RTCIceCandidateInit) => void;
-    onTrack?: (track: MediaStreamTrack) => void;
+    private _onIce?: (ice: RTCIceCandidate) => void;
+    private _onTrack?: (track: MediaStreamTrack) => void;
     onConnectionStateChange?: (state: RTCPeerConnectionState) => void;
     
     constructor(){
@@ -15,13 +16,16 @@ export class RtcClient {
         });
 
         this.pc.onicecandidate = (e) => {
-            if (e.candidate) this.onIce?.(e.candidate.toJSON());
-        }
+            if (e.candidate) this._onIce?.(e.candidate)
+            else return;
+        };
 
         this.pc.ontrack = (ev) => {
             // TODO: figure this out
-        }
-    }
+        };
+    };
+
+    onIce(fn: (ice: RTCIceCandidate) => void) {this._onIce = fn};
     
     // attach local medias
     attachLocalStream(stream: MediaStream) {

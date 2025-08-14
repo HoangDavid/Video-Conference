@@ -5,6 +5,8 @@ import { Toaster, toast } from "react-hot-toast";
 import CircularProgress from '@mui/material/CircularProgress';
 import type { Room } from "../types/room";
 
+import join_meeting from '../services/joinMeeting';
+
 export default function NewMeeting(){
     // Logic
     const state = useLocation().state as Room
@@ -12,7 +14,10 @@ export default function NewMeeting(){
 
     const onStartMeeting = async () => {
         setLoading(true)
-        setLoading(false)
+        if (!await join_meeting()) {
+            toast.error("unable to join meetinyg")
+            setLoading(false)
+        }
     }
 
     return <>

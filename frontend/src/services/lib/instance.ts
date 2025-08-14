@@ -23,11 +23,35 @@ export function destroySignal() {
 }
 
 // webrtc connetion singleton
-let rtc: RtcClient | null = null;
+let pub: RtcClient | null = null;
+let sub: RtcClient | null = null;
 
-export function initRtc() {
-    if (!rtc) rtc = new RtcClient();
-    return rtc;
+export function initRtcPub() {
+    if (!pub) pub = new RtcClient();
+    return pub;
+}
+
+export function initRtcSub() {
+    if (!sub) sub = new RtcClient();
+    return sub
+}
+
+export function getRtcPub (){
+    if (!pub) { 
+        console.error("publisher is not initialized");
+        return null
+    }
+
+    return pub
+}
+
+export function getRtcSub () {
+    if (!sub) {
+        console.error("subcriber is not initialized");
+        return null
+    }
+
+    return sub
 }
 
 
