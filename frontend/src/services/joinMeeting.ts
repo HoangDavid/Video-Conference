@@ -73,7 +73,6 @@ export default async function join_meeting(): Promise<boolean>{
         signal_conn.sendAction(claims, "join");
     }
 
-
     return true
 }
 
