@@ -6,8 +6,8 @@ import { useNavigate } from 'react-router-dom';
 import { Toaster, toast } from "react-hot-toast";
 
 import create_meeting from './services/createMeeting';
-import join_meeting from './services/joinMeeting';
-import authenticate from './services/authenticate';
+import authenticate from './services/security/authenticate';
+import get_claims from './services/security/getClaims';
 
 
 
@@ -33,6 +33,7 @@ function App() {
 
   const navigate = useNavigate();
 
+  // on click craete new room/meeting
   const onCreateRoom = async (userName:string, duration: string) => {
     setLoading(true);
     const room = await create_meeting(userName, duration);
@@ -40,19 +41,20 @@ function App() {
     setLoading(false);
   }
 
+  // on click join meeting
   const onJoinRoom = async (userName:string, roomID: string, pin: string) => {
     setLoading(true);
-    if (await authenticate(userName, roomID, pin)) {
-      if (!await join_meeting()) {
-        toast.error("Unable to join meeting");
-        setLoading(false);
-      }
 
+    if (await authenticate(userName, roomID, pin)) {
+      const claims = await get_claims();
+      if (!claims) {toast.error("unable to get claims:((");setLoading(false); return;}
+      navigate(`/rooms/${claims.roomID}/preview`)
     }else {
       toast.error("Invalid room ID and/or pin");
-      setLoading(false);
-    }
-  }
+    };
+
+    setLoading(false);
+  };
 
 
   // Customization
@@ -78,28 +80,31 @@ function App() {
     padding: "12px",
     fontWeight: "500",
     fontSize: "18px",
-    verticalAlign: "middle"
+    verticalAlign: "middle",
+    textAlign: "center",
   }
 
 
   return (
     <>
       <h1>VideoCall Demo</h1>
+      {!isJoin && !isCreateRoom && <h2> Joining as: </h2>}
       
       {loading && <CircularProgress size="3rem" />}
       
       {!loading &&
       <>
         {/* Enter Name */}
-        <input
-        type="text"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder="Enter your name here"
-        style={inputx}
-        id="name"
-        autoComplete='off'
-        />
+        { (isJoin || isCreateRoom) && <input
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Enter your name here"
+          style={inputx}
+          id="name"
+          autoComplete='off'
+          />
+        }
 
         {/* Enter roomID */}
         {isJoin &&
@@ -157,7 +162,8 @@ function App() {
                 if (!isCreateRoom) setIsCreateRoom(true)
                 else onCreateRoom(name, duration)
               }}>
-                Create Room
+                {!isCreateRoom&& <>Host</>}
+                {isCreateRoom && <>Create</>}
               </button>
             }
 
@@ -166,7 +172,9 @@ function App() {
                 if (!isJoin) setIsJoin(true)
                 else onJoinRoom(name, roomID, pin)
               }}>
-                Join Room
+
+                {!isJoin && <>Guest</>}
+                {isJoin && <>Join</>}
               </button>
             }
         </div>

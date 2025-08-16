@@ -45,8 +45,9 @@ enum PcType {
 // Role type
 enum RoleType {
     ROLE_UNSPECIFIED = 0;
-    ROLE_HUMAN = 1;
-    ROLE_BOT = 2;
+    ROLE_HOST = 1;
+    ROLE_GUEST = 2;
+    ROLE_BOT = 3;
 }
 
 // Action

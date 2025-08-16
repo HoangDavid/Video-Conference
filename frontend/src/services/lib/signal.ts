@@ -2,6 +2,7 @@ import type { Claims } from "../../types/claims";
 import type {Signal, Sdp, Ice, PeerEvent, PcType, SdpType, ActionType, PeerAction} from "../../types/signal";
 import Denque from "denque"
 
+
 export class SignalClient {
     private signal_url: string;
     private ws!: WebSocket;
@@ -24,35 +25,29 @@ export class SignalClient {
     private _onEventSubs = new Set<(e: PeerEvent) => void>()
     
     
-    constructor(ws_url: string) {
-        this.signal_url = ws_url;
-    }
+    constructor(ws_url: string) {this.signal_url = ws_url;}
 
     connect(){
-        this.ws = new WebSocket(this.signal_url);
-        this.ws.onopen = () => {
-            while (this.queue.length) {
-                this.ws.send(JSON.stringify(this.queue.shift()!));
-            }
+        if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) return;
+
+        const ws = new WebSocket(this.signal_url);
+        this.ws = ws;
+
+        ws.onopen = () => {
+            while (this.queue.length) ws.send(JSON.stringify(this.queue.shift()!));
         };
-
-        this.ws.onclose = (ev) => this._onClose?.(ev);
-        this.ws.onerror = (ev) => this._onError?.(ev);
-
-        this.ws.onmessage = (ev) => {
+        ws.onclose = (ev) => this._onClose?.(ev);
+        ws.onerror = (ev) => this._onError?.(ev);
+        ws.onmessage = (ev) => {
             const msg = JSON.parse(ev.data) as Signal;
             switch (msg.type) {
                 case "sdp": this._onSdp?.(msg.payload); break;
                 case "ice": this._onIce?.(msg.payload); break;
-                case "event": 
-                    for (const cb of this._onEventSubs) {
-                        try {cb(msg.payload);}catch(e) {console.error(e)}
-                    }
-                    break;
-
-                default:
+                case "event":
+                for (const cb of this._onEventSubs) { try { cb(msg.payload); } catch (e) { console.error(e); } }
+                break;
             }
-        }
+        };
     }
 
     close(code: number = 1000, reason: string= "client shutdown"): void {
@@ -101,6 +96,28 @@ export class SignalClient {
         this.send({type: "action", payload});
     }
 
+    // true  if success, false otherwise
+    isOpen(): boolean { return !!this.ws && this.ws.readyState === WebSocket.OPEN; }
+
+    async waitUnillOpen(timeoutMs = 5000): Promise<boolean> {
+        if (this.isOpen()) return true;
+            this.connect();
+            const ws = this.ws!;
+        return await new Promise<boolean>((resolve) => {
+            const done = (ok: boolean) => {
+                ws.removeEventListener("open", onOpen);
+                ws.removeEventListener("error", onErr);
+                clearTimeout(t);
+                resolve(ok);
+            };
+            const onOpen = () => done(true);
+            const onErr = () => done(false);
+            const t = setTimeout(() => done(false), timeoutMs);
+            ws.addEventListener("open", onOpen, { once: true });
+            ws.addEventListener("error", onErr, { once: true });
+        });
+    }
+
     private cleanup() {
         this.ws.onopen = null;
         this.ws.onmessage = null;
@@ -112,3 +129,5 @@ export class SignalClient {
     }
 
 }
+
+export const signal_conn = new SignalClient("/ws")

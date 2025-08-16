@@ -1,6 +1,7 @@
 package rtc
 
 import (
+	"fmt"
 	"log/slog"
 	"time"
 	sfu "vidcall/api/proto"
@@ -83,7 +84,7 @@ func (c *PConn) HandleRemoteIce(candidate *sfu.PeerSignal_Ice) error {
 }
 
 // Send offer to client
-func (c *PConn) SendOffer() error {
+func (c *PConn) SendOffer(pc sfu.PcType) error {
 	offer, err := c.PC.CreateOffer(nil)
 	if err != nil {
 		c.Log.Error("unable to create offer")
@@ -97,6 +98,7 @@ func (c *PConn) SendOffer() error {
 	r := &sfu.PeerSignal{
 		Payload: &sfu.PeerSignal_Sdp{
 			Sdp: &sfu.Sdp{
+				Pc:   pc,
 				Type: sfu.SdpType_OFFER,
 				Sdp:  c.PC.LocalDescription().SDP,
 			},
@@ -117,7 +119,8 @@ func (c *PConn) HandleOffer(sdp *sfu.PeerSignal_Sdp) error {
 
 	// Set remote description
 	if err := c.PC.SetRemoteDescription(offer); err != nil {
-		c.Log.Info("unable to set remote description")
+		msg := fmt.Sprintf("unable to set remote description from offer: %v", err)
+		c.Log.Error(msg)
 		return err
 	}
 
@@ -160,7 +163,7 @@ func (c *PConn) HandleAnswer(sdp *sfu.PeerSignal_Sdp) error {
 
 	// Set Remote Description
 	if err := c.PC.SetRemoteDescription(answer); err != nil {
-		c.Log.Error("unable to set remote description")
+		c.Log.Error("unable to set remote description from answer")
 		return err
 	}
 
@@ -216,33 +219,6 @@ func (c *PConn) enqueueSend(msg *sfu.PeerSignal) {
 	case c.SendQ <- msg:
 	default:
 	}
-}
-
-// Rengegotiation with debounce (Future: if add tracks/ remove tracks)
-func (c *PConn) HandleNegotiationNeeded() {
-	dt := c.DebounceTimer
-
-	dt.Mu.Lock()
-	defer dt.Mu.Unlock()
-	if dt.Timer != nil {
-		dt.Timer.Stop()
-	}
-
-	dt.Timer = time.AfterFunc(dt.Interval, c.renegotiate)
-}
-
-func (c *PConn) renegotiate() {
-	dt := c.DebounceTimer
-	dt.Mu.Lock()
-	dt.Timer = nil
-	dt.Mu.Unlock()
-
-	if c.PC.SignalingState() != webrtc.SignalingStateStable {
-		// TODO: retry:
-		return
-	}
-
-	c.SendOffer()
 }
 
 func (c *PConn) Close() error {

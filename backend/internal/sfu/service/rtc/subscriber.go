@@ -83,7 +83,13 @@ func NewSubscriber(ctx context.Context, sendQ chan *sfu.PeerSignal, log *slog.Lo
 // wire pc call backs
 func (s *SubConn) WireCallBacks() {
 	pc := s.Conn.GetPC()
-	pc.OnICECandidate(s.Conn.HandleLocalIce)
+	pc.OnICECandidate(func(c *webrtc.ICECandidate) {
+		if c == nil {
+			return
+		}
+		s.Conn.HandleLocalIce(c)
+
+	})
 	pc.OnTrack(nil)
 	pc.OnNegotiationNeeded(nil)
 }
@@ -91,7 +97,7 @@ func (s *SubConn) WireCallBacks() {
 // start ice/sdp exchange for pc
 func (s *SubConn) Connect() error {
 	// Send an offer to client
-	if err := s.Conn.SendOffer(); err != nil {
+	if err := s.Conn.SendOffer(sfu.PcType_SUB); err != nil {
 		return err
 	}
 

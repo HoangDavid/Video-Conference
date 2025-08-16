@@ -41,6 +41,9 @@
   border: grey 1px solid;
   border-radius: 15px;
   cursor: pointer;
+  padding-left: 15px;
+  padding-right: 15px;
+  height: fit-content;
 }
 
 .box:hover {

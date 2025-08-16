@@ -2,7 +2,10 @@ package wsx
 
 import (
 	"encoding/json"
+	"log/slog"
 	sfu "vidcall/api/proto"
+
+	"github.com/gorilla/websocket"
 )
 
 func handleClientSDP(payload json.RawMessage) (*sfu.PeerSignal, error) {
@@ -254,4 +257,49 @@ func handleSfuEvent(msg *sfu.PeerSignal_Event) (*signal, error) {
 	}
 
 	return s, nil
+}
+
+type Intent int
+
+const (
+	IntentUnknown Intent = iota
+	IntentJoin
+	IntentExit
+)
+
+func handleFirstMsg(conn *websocket.Conn, log *slog.Logger) (Intent, *sfu.PeerSignal, error) {
+	var msg signal
+
+	for {
+		err := conn.ReadJSON(&msg)
+		if err != nil {
+			log.Error("unable to read msg")
+			return IntentUnknown, nil, err
+		}
+
+		switch msg.Type {
+		case "action":
+			pl := msg.Payload
+			var act action
+			if err := json.Unmarshal(pl, &act); err != nil {
+				log.Error("unable to unmarshal")
+				return IntentUnknown, nil, err
+			}
+
+			switch act.Type {
+			case "start_room", "join":
+				first, err := handleClientAction(msg.Payload)
+				if err != nil {
+					return IntentUnknown, nil, err
+				}
+
+				return IntentJoin, first, nil
+			case "leave", "end_room":
+				return IntentExit, nil, nil
+			default:
+			}
+
+		default:
+		}
+	}
 }

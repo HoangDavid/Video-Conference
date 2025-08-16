@@ -1,6 +1,7 @@
 package service
 
 import (
+	"fmt"
 	sfu "vidcall/api/proto"
 	"vidcall/internal/sfu/service/hub"
 	"vidcall/internal/sfu/service/room"
@@ -10,6 +11,8 @@ func (p *PeerObj) handleStartRoom(roomID string) {
 	// create room instance
 	r := room.NewRoom(roomID)
 	r.AddPeer(p.ID, p)
+
+	fmt.Println("room started!!")
 
 	// create room active event
 	roomActiveE := &sfu.PeerSignal_Event{
@@ -40,6 +43,7 @@ func (p *PeerObj) handleJoinRoom(roomID string) {
 		}
 
 		p.EnqueueEvent(roomInactiveE)
+		return
 	}
 
 	// add peer to live room

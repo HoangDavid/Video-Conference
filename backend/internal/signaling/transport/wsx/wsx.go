@@ -63,11 +63,29 @@ var upgrader = websocket.Upgrader{
 func HandleWS(w http.ResponseWriter, r *http.Request, sfuCLient sfu.SFUClient) {
 	ctx := r.Context()
 	log := logger.GetLog(ctx).With("layer", "transport")
-	conn, _ := upgrader.Upgrade(w, r, nil)
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Error("unable to upgrade to websocket")
+		return
+	}
+
+	// Checking for join/start meeting before conecting to SFU
+	intent, first, err := handleFirstMsg(conn, log)
+	if err != nil || intent != IntentJoin {
+		return
+	}
 
 	stream, err := sfuCLient.Signal(ctx)
 	if err != nil {
 		log.Error("unable to create stream to SFU")
+		return
+	}
+
+	defer stream.CloseSend()
+
+	// Send the first signal
+	if err := stream.Send(first); err != nil {
+		log.Error("unable to send first signal")
 		return
 	}
 
@@ -79,8 +97,10 @@ func HandleWS(w http.ResponseWriter, r *http.Request, sfuCLient sfu.SFUClient) {
 	if err := g.Wait(); err != nil {
 		log.Error(fmt.Sprintf("websocket disconnected with error: %v", err))
 	}
-	// on websocket disconnect
+
 	stream.CloseSend()
+
+	// on websocket disconnect
 	CloseOne(conn, websocket.CloseNormalClosure, "")
 
 }

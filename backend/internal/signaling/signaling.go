@@ -51,11 +51,9 @@ func Execute() {
 	mux.HandleFunc("GET /api/me", security.RequireAuth(issuer)(func(w http.ResponseWriter, r *http.Request) {
 		httpx.HandleClaims(w, r)
 	}))
-	// mux.HandleFunc("GET /ws", security.RequireAuth(issuer)(func(w http.ResponseWriter, r *http.Request) {
-	// 	transport.HandleWS(w, r, sfuClient) }))
-	mux.HandleFunc("GET /ws", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /ws", security.RequireAuth(issuer)(func(w http.ResponseWriter, r *http.Request) {
 		wsx.HandleWS(w, r, sfuClient)
-	})
+	}))
 
 	port := os.Getenv("SIGNALING_PORT")
 	server := &http.Server{

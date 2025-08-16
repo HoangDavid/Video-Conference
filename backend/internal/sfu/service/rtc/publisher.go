@@ -48,7 +48,13 @@ func NewPublisher(ctx context.Context, sendQ chan *sfu.PeerSignal, log *slog.Log
 // set up pc callbacks
 func (p *PubConn) WireCallBacks() {
 	pc := p.Conn.GetPC()
-	pc.OnICECandidate(p.Conn.HandleLocalIce)
+	pc.OnICECandidate(func(c *webrtc.ICECandidate) {
+		if c == nil {
+			return
+		}
+		p.Conn.HandleLocalIce(c)
+
+	})
 	pc.OnNegotiationNeeded(nil)
 	pc.OnTrack(p.handleOnTrack)
 }
