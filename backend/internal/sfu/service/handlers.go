@@ -1,160 +1,174 @@
 package service
 
 import (
-	"fmt"
 	sfu "vidcall/api/proto"
 	"vidcall/internal/sfu/service/hub"
 	"vidcall/internal/sfu/service/room"
 )
 
-func (p *PeerObj) handleStartRoom(roomID string) {
-	// create room instance
-	r := room.NewRoom(roomID)
-	r.AddPeer(p.ID, p)
+func (p *PeerObj) handleActions(act *sfu.PeerSignal_Action) error {
+	md := p.Metadata
+	r := hub.Hub().GetRoom(md.RoomID)
 
-	fmt.Println("room started!!")
-
-	// create room active event
-	roomActiveE := &sfu.PeerSignal_Event{
-		Event: &sfu.Event{
-			Roomid: roomID,
-			Peerid: p.ID,
-			Type:   sfu.EventType_ROOM_ACTIVE,
-		},
-	}
-
-	// broadcast to peers in lobby
-	r.BroadCast(p.ID, roomActiveE)
-
-}
-
-func (p *PeerObj) handleJoinRoom(roomID string) {
-
-	r := hub.Hub().GetRoom(roomID)
-
-	// room is not live
 	if r == nil {
-		roomInactiveE := &sfu.PeerSignal_Event{
-			Event: &sfu.Event{
-				Roomid: roomID,
-				Peerid: p.ID,
-				Type:   sfu.EventType_ROOM_INACTIVE,
-			},
+		r = room.NewRoom(md.RoomID)
+	}
+
+	log := p.Log.With("handlers", "action", "peer ID", md.PeerID)
+
+	switch act.Action.Type {
+	case sfu.ActionType_START_ROOM:
+		if r.GetPeer(md.PeerID) == nil {
+			r.AddPeer(md.PeerID, p)
 		}
 
-		p.EnqueueEvent(roomInactiveE)
-		return
-	}
+		if !r.IsLive() && md.Role == sfu.RoleType_ROLE_HOST {
+			r.MakeLive()
 
-	// add peer to live room
-	r.AddPeer(p.ID, p)
+			roomActiveE := p.createEvent(md.RoomID, sfu.EventType_ROOM_ACTIVE)
+			r.BroadCast(md.PeerID, roomActiveE)
 
-	// subscribe to room
-	peers := r.ListPeers()
-	for id, peer := range peers {
-		if id == p.ID {
-			continue
+			log.Info("host start room")
 		}
 
-		p.Subscriber.SubscribeVideo(peer)
-	}
+		return nil
 
-	// create join event
-	joinE := &sfu.PeerSignal_Event{
-		Event: &sfu.Event{
-			Roomid: roomID,
-			Peerid: p.ID,
-			Type:   sfu.EventType_JOIN_EVENT,
-		},
-	}
+	case sfu.ActionType_JOIN:
 
-	r.BroadCast(p.ID, joinE)
+		if r.GetPeer(md.PeerID) == nil {
+			r.AddPeer(md.PeerID, p)
+		}
 
-}
+		// room is not live
+		if !r.IsLive() {
+			roomInactiveE := p.createEvent(md.RoomID, sfu.EventType_ROOM_INACTIVE)
+			p.EnqueueSend(&sfu.PeerSignal{Payload: roomInactiveE})
+			return nil
+		} else {
+			roomActiveE := p.createEvent(md.RoomID, sfu.EventType_ROOM_ACTIVE)
+			p.EnqueueSend(&sfu.PeerSignal{Payload: roomActiveE})
+		}
 
-func (p *PeerObj) handleLeaveRoom(roomID string) {
-	r := hub.Hub().GetRoom(roomID)
-	r.RemovePeer(p.ID)
+		if err := p.Subscriber.SubscribeRoom(md.PeerID, r); err != nil {
+			return err
+		}
 
-	// create leave event
-	leaveE := &sfu.PeerSignal_Event{
-		Event: &sfu.Event{
-			Roomid: roomID,
-			Peerid: p.ID,
-			Type:   sfu.EventType_LEAVE_EVENT,
-		},
-	}
+		// create event and broadcast
+		joinE := p.createEvent(md.RoomID, sfu.EventType_JOIN_EVENT)
+		r.BroadCast(md.PeerID, joinE)
+		log.Info("guest join room")
 
-	r.BroadCast(p.ID, leaveE)
+		return nil
 
-	// trigger to disconnect pc
-	p.Cancel()
-}
+	case sfu.ActionType_LEAVE:
+		if r.GetPeer(md.PeerID) != nil {
+			r.RemovePeer(md.PeerID)
+		}
 
-func (p *PeerObj) handleEndRoom(roomID string) {
-	r := hub.Hub().GetRoom(roomID)
-	r.Close()
+		if r.IsLive() {
+			// TODO: unscribe the video
 
-	// create end room event
-	endRoomE := &sfu.PeerSignal_Event{
-		Event: &sfu.Event{
-			Roomid: roomID,
-			Peerid: p.ID,
-			Type:   sfu.EventType_ROOM_ENEDED,
-		},
-	}
+			// create event and broadcast
+			leaveE := p.createEvent(md.RoomID, sfu.EventType_LEAVE_EVENT)
+			r.BroadCast(md.PeerID, leaveE)
 
-	r.BroadCast(p.ID, endRoomE)
+			// trigger context to disconnect pc
+			p.Cancel()
+			log.Info("guest leave room")
+		}
 
-	// trigger to disconnect pc
-	p.Cancel()
-}
+		return nil
 
-func (p *PeerObj) handleRoomActiveEvent(event *sfu.PeerSignal_Event) {
-	roomActiveE := &sfu.PeerSignal{
-		Payload: event,
-	}
+	case sfu.ActionType_END_ROOM:
+		if r.IsLive() && md.Role == sfu.RoleType_ROLE_HOST {
+			r.Close()
+			// create end room event
+			endRoomE := p.createEvent(md.RoomID, sfu.EventType_ROOM_ENDED)
+			r.BroadCast(md.PeerID, endRoomE)
 
-	p.EnqueueSend(roomActiveE)
-}
+			// trigger to disconnect pc
+			p.Cancel()
+			log.Info("Action: end room")
 
-func (p *PeerObj) handleRoomInactiveEvent(event *sfu.PeerSignal_Event) {
-	roomInactiveE := &sfu.PeerSignal{
-		Payload: event,
-	}
+			return nil
+		}
 
-	p.EnqueueSend(roomInactiveE)
-}
-
-func (p *PeerObj) handleJoinEvent(event *sfu.PeerSignal_Event) error {
-	peerID := event.Event.Peerid
-	roomID := event.Event.Roomid
-
-	r := hub.Hub().GetRoom(roomID)
-	peer := r.GetPeer(peerID)
-
-	if err := p.Subscriber.SubscribeVideo(peer); err != nil {
-		return err
+	case sfu.ActionType_AUDIO_ON:
+	case sfu.ActionType_AUDIO_OFF:
+	case sfu.ActionType_VIDEO_ON:
+	case sfu.ActionType_VIDEO_OFF:
+	case sfu.ActionType_DUBBING_ON:
+	case sfu.ActionType_DUBBING_OFF:
+	default:
 	}
 
 	return nil
 }
 
-func (p *PeerObj) handleLeaveEvent(event *sfu.PeerSignal_Event) error {
-	peerID := event.Event.Peerid
-	roomID := event.Event.Roomid
+func (p *PeerObj) handleEvents(evt *sfu.PeerSignal_Event) error {
 
-	r := hub.Hub().GetRoom(roomID)
-	r.RemovePeer(peerID)
+	md := p.Metadata
 
-	if err := p.Subscriber.UnsubscribeVideo(peerID); err != nil {
-		return err
+	log := p.Log.With("handlers", "event", "peer ID", md.PeerID)
+
+	switch evt.Event.Type {
+	case sfu.EventType_ROOM_ACTIVE:
+		p.EnqueueSend(&sfu.PeerSignal{Payload: evt})
+		log.Info("room active event")
+
+	case sfu.EventType_ROOM_INACTIVE:
+		p.EnqueueSend(&sfu.PeerSignal{Payload: evt})
+		log.Info("room inactive event")
+
+	case sfu.EventType_JOIN_EVENT:
+		r := hub.Hub().GetRoom(md.RoomID)
+		_ = r.GetPeer(md.PeerID)
+
+		if evt.Event.PeerID != md.PeerID {
+			peer := r.GetPeer(evt.Event.PeerID)
+			if peer == nil {
+				p.Log.Error("peer does not exist")
+				return nil
+			}
+
+			if err := p.Subscriber.SubscribeVideo(peer); err != nil {
+
+				return err
+			}
+		}
+
+		p.EnqueueSend(&sfu.PeerSignal{Payload: evt})
+		log.Info("peer join event")
+
+	case sfu.EventType_LEAVE_EVENT:
+		if evt.Event.PeerID != md.PeerID {
+			// if err := p.Subscriber.UnsubscribeVideo(peerID); err != nil {
+			// 	return err
+			// }
+		}
+
+		p.EnqueueSend(&sfu.PeerSignal{Payload: evt})
+		log.Info("peer leave event")
+
+	case sfu.EventType_ROOM_ENDED:
+		p.Cancel()
+		log.Info("host end room event")
+
+	case sfu.EventType_AUDIO_ENABLED:
+	case sfu.EventType_AUDIO_DISABLED:
+	case sfu.EventType_VIDEO_ENABLED:
+	case sfu.EventType_VIDEO_DISABLED:
 	}
-
 	return nil
 }
 
-func (p *PeerObj) handleRoomEndedEvent() {
-	// trigger to disconnect pc
-	p.Cancel()
+// helper funciton to create event
+func (p *PeerObj) createEvent(roomID string, e sfu.EventType) *sfu.PeerSignal_Event {
+	return &sfu.PeerSignal_Event{
+		Event: &sfu.Event{
+			Name:   p.Metadata.Name,
+			PeerID: p.Metadata.PeerID,
+			Type:   e,
+		},
+	}
 }

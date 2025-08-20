@@ -5,7 +5,7 @@ import { Toaster, toast } from "react-hot-toast";
 import { useNavigate } from 'react-router-dom';
 
 import get_claims from '../services/security/getClaims';
-import { signal_conn } from '../services/lib/signal';
+import {  signal_conn} from '../services/lib/signal';
 import type { PeerEvent } from '../types/signal';
 
 export default function LobbyPage(){
@@ -20,16 +20,16 @@ export default function LobbyPage(){
                 const claims = await get_claims()
                 if (!claims){
                     toast.error("You are not authenticated");
-                    navigate("/");
+                    navigate("../");
                     return;
                 }
 
                 const del = signal_conn.onEvent((e: PeerEvent) => {
-                    if (e.type == "room_active") {
+                    if (e.type == "room_active" && e.peerID != claims.peerID) {
                         setLoading(false);
                         del();
-                        signal_conn.sendAction(claims, "join");
-                        navigate(`rooms/${e.roomID}/meeting`);
+                        signal_conn.sendAction("join");
+                        navigate(`../rooms/${claims.roomID}/meeting`);
                     }
                 })
             }else {

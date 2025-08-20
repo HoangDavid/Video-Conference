@@ -2,7 +2,7 @@ export type Role = "host" | "guest";
 
 export interface Claims {
     name: string
-    ID: string
+    peerID: string
     roomID: string
     role: Role
 }

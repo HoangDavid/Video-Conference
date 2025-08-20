@@ -20,7 +20,7 @@ export default function PreviewVideo(){
             if (mediaRef.current){
                 console.log()
                 mediaRef.current.srcObject = m;
-                mediaRef.current.muted = false;
+                mediaRef.current.muted = true;
                 await mediaRef.current.play().catch((e) => {console.error(e)})
             }
             setAudio(media.audio?.enabled ?? false);
@@ -46,7 +46,9 @@ export default function PreviewVideo(){
         width: "40vw",
         position: "relative",
         verticalAlign: "middle",
-        margin: "15px"
+        left: 0,
+        right: 0,
+        margin: "auto"
     }
 
     const videoBox: React.CSSProperties = {

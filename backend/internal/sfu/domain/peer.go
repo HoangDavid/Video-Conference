@@ -7,7 +7,7 @@ import (
 )
 
 type Peer interface {
-	GetID() string
+	GetMetaData() *PeerMD
 	Pub() Publisher
 	Sub() Subscriber
 	Connect() error
@@ -16,7 +16,7 @@ type Peer interface {
 }
 
 type PeerObj struct {
-	ID         string
+	Metadata   *PeerMD
 	Log        *slog.Logger
 	Ctx        context.Context
 	Cancel     context.CancelFunc
@@ -26,4 +26,11 @@ type PeerObj struct {
 
 	SendQ  chan *sfu.PeerSignal
 	EventQ chan *sfu.PeerSignal_Event
+}
+
+type PeerMD struct {
+	Name   string
+	PeerID string
+	RoomID string
+	Role   sfu.RoleType
 }

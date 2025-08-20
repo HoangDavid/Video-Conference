@@ -79,7 +79,7 @@ func HandleAuth(w http.ResponseWriter, r *http.Request) {
 func HandleClaims(w http.ResponseWriter, r *http.Request) {
 	type resp struct {
 		Name   string `json:"name"`
-		ID     string `json:"ID"`
+		PeerID string `json:"peerID"`
 		RoomID string `json:"roomID"`
 		Role   string `json:"role"`
 	}
@@ -94,8 +94,8 @@ func HandleClaims(w http.ResponseWriter, r *http.Request) {
 	utils.Respond(w, http.StatusCreated,
 		&resp{
 			Name:   claims.Name,
-			ID:     claims.ID,
+			PeerID: claims.PeerID,
 			RoomID: claims.RoomID,
-			Role:   claims.ID,
+			Role:   claims.Role,
 		})
 }

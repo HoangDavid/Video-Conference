@@ -26,7 +26,7 @@ enum ActionType {
 enum EventType {
     ROOM_ACTIVE = 0;
     ROOM_INACTIVE = 1;
-    ROOM_ENEDED = 2;
+    ROOM_ENDED = 2;
     JOIN_EVENT = 3;
     LEAVE_EVENT = 4;
     AUDIO_ENABLED = 5;
@@ -50,18 +50,14 @@ enum RoleType {
     ROLE_BOT = 3;
 }
 
-// Action
-message Action {
-    string roomid = 1;
-    string peerid = 2;
-    ActionType type = 3;
-    RoleType role = 4;
+message Action{
+    ActionType type = 1;
 }
 
 message Event {
-    string roomid = 1;
-    string peerid = 2;
-    EventType type = 3;
+    EventType type = 1;
+    string name = 2;
+    string peerID = 3;
 }
 
 // Session Description (SDP)

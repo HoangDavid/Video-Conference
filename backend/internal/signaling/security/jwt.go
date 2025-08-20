@@ -8,6 +8,7 @@ import (
 
 type Claims struct {
 	Name   string
+	PeerID string
 	RoomID string
 	Role   string
 	jwt.RegisteredClaims
@@ -28,6 +29,7 @@ func (i *Issuer) Issue(roomID string, memberID string, name string, role string)
 	now := time.Now()
 	c := Claims{
 		Name:   name,
+		PeerID: memberID,
 		RoomID: roomID,
 		Role:   role,
 		RegisteredClaims: jwt.RegisteredClaims{

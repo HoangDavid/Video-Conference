@@ -11,7 +11,7 @@ import App from './App.tsx'
 export const router = createBrowserRouter([
   {path: "/", element: <App/>},
   {path: "/rooms/new", element: <NewMeetingPage/>},
-  {path: "/rooms/:roomId/preview", element: <PreviewPage/>},
+  {path: "/rooms/:roomID/preview", element: <PreviewPage/>},
   {path: "/rooms/:roomID/lobby", element: <LobbyPage/>},
   {path: "/rooms/:roomID/meeting",  element: <MeetingPage/>}
 ])

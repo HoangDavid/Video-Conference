@@ -60,9 +60,6 @@ func (h *HubObj) GetRoom(roomID string) domain.Room {
 	h.Mu.Lock()
 	defer h.Mu.Unlock()
 
-	h.Mu.Lock()
-	defer h.Mu.Unlock()
-
 	v, ok := h.Rooms[roomID]
 	if !ok {
 		return nil

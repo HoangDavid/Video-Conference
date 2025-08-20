@@ -37,7 +37,7 @@ function App() {
   const onCreateRoom = async (userName:string, duration: string) => {
     setLoading(true);
     const room = await create_meeting(userName, duration);
-    navigate("/rooms/new", {state: {roomID: room?.roomID, pin: room?.pin}});
+    navigate("../rooms/new", {state: {roomID: room?.roomID, pin: room?.pin}});
     setLoading(false);
   }
 
@@ -48,7 +48,7 @@ function App() {
     if (await authenticate(userName, roomID, pin)) {
       const claims = await get_claims();
       if (!claims) {toast.error("unable to get claims:((");setLoading(false); return;}
-      navigate(`/rooms/${claims.roomID}/preview`)
+      navigate(`../rooms/${claims.roomID}/preview`)
     }else {
       toast.error("Invalid room ID and/or pin");
     };

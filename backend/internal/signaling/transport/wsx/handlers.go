@@ -8,7 +8,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-func handleClientSDP(payload json.RawMessage) (*sfu.PeerSignal, error) {
+func handleClientSDP(payload json.RawMessage, log *slog.Logger) (*sfu.PeerSignal, error) {
 	var (
 		sdp     sdp
 		pcType  sfu.PcType
@@ -16,6 +16,7 @@ func handleClientSDP(payload json.RawMessage) (*sfu.PeerSignal, error) {
 	)
 
 	if err := json.Unmarshal(payload, &sdp); err != nil {
+		log.Error("unable to unmarshal the sdp payload")
 		return nil, err
 	}
 
@@ -50,13 +51,14 @@ func handleClientSDP(payload json.RawMessage) (*sfu.PeerSignal, error) {
 	return signal, nil
 }
 
-func handleClientIce(payload json.RawMessage) (*sfu.PeerSignal, error) {
+func handleClientIce(payload json.RawMessage, log *slog.Logger) (*sfu.PeerSignal, error) {
 	var (
 		ice    ice
 		pcType sfu.PcType
 	)
 
 	if err := json.Unmarshal(payload, &ice); err != nil {
+		log.Error("unable to unmarshal the ice payload")
 		return nil, err
 	}
 
@@ -84,56 +86,54 @@ func handleClientIce(payload json.RawMessage) (*sfu.PeerSignal, error) {
 	return signal, nil
 }
 
-func handleClientAction(payload json.RawMessage) (*sfu.PeerSignal, error) {
+func handleClientAction(payload json.RawMessage, log *slog.Logger) (*sfu.PeerSignal, error) {
 	var (
 		action  action
 		actType sfu.ActionType
-		role    sfu.PeerRole
 	)
 
 	if err := json.Unmarshal(payload, &action); err != nil {
+		log.Error("unable to unmarshal action payload")
 		return nil, err
 	}
 
 	switch action.Type {
 	case "start_room":
 		actType = sfu.ActionType_START_ROOM
+		log.Info("start room")
 	case "join":
 		actType = sfu.ActionType_JOIN
+		log.Info("join room")
 	case "leave":
 		actType = sfu.ActionType_LEAVE
+		log.Info("leave room")
 	case "end_room":
 		actType = sfu.ActionType_END_ROOM
+		log.Info("end room")
 	case "audio_on":
 		actType = sfu.ActionType_AUDIO_ON
+		log.Info("audio on")
 	case "audio_off":
 		actType = sfu.ActionType_AUDIO_OFF
+		log.Info("audio off")
 	case "video_on":
 		actType = sfu.ActionType_VIDEO_ON
+		log.Info("video on")
 	case "video_off":
 		actType = sfu.ActionType_VIDEO_OFF
+		log.Info("video off")
 	case "dubbing_on":
 		actType = sfu.ActionType_DUBBING_ON
+		log.Info("dubbing on")
 	case "dubbing_off":
 		actType = sfu.ActionType_DUBBING_OFF
-	}
-
-	switch action.Role {
-	case "human":
-		role = sfu.PeerRole_ROLE_HUMAN
-	case "bot":
-		role = sfu.PeerRole_ROLE_BOT
-	case "unspecfied":
-		role = sfu.PeerRole_ROLE_UNSPECIFIED
+		log.Info("dubbing off")
 	}
 
 	signal := &sfu.PeerSignal{
 		Payload: &sfu.PeerSignal_Action{
 			Action: &sfu.Action{
-				Peerid: action.PeerID,
-				Roomid: action.RoomID,
-				Type:   actType,
-				Role:   role,
+				Type: actType,
 			},
 		},
 	}
@@ -141,7 +141,7 @@ func handleClientAction(payload json.RawMessage) (*sfu.PeerSignal, error) {
 	return signal, nil
 }
 
-func handleSfuSDP(msg *sfu.PeerSignal_Sdp) (*signal, error) {
+func handleSfuSDP(msg *sfu.PeerSignal_Sdp, log *slog.Logger) (*signal, error) {
 	var (
 		pcType  string
 		sdpType string
@@ -171,6 +171,7 @@ func handleSfuSDP(msg *sfu.PeerSignal_Sdp) (*signal, error) {
 
 	raw, err := json.Marshal(sdp)
 	if err != nil {
+		log.Error("unable to marshal sdp payload")
 		return nil, err
 	}
 
@@ -183,7 +184,7 @@ func handleSfuSDP(msg *sfu.PeerSignal_Sdp) (*signal, error) {
 
 }
 
-func handleSfuIce(msg *sfu.PeerSignal_Ice) (*signal, error) {
+func handleSfuIce(msg *sfu.PeerSignal_Ice, log *slog.Logger) (*signal, error) {
 	var pcType string
 
 	switch msg.Ice.Pc {
@@ -205,6 +206,7 @@ func handleSfuIce(msg *sfu.PeerSignal_Ice) (*signal, error) {
 
 	raw, err := json.Marshal(ice)
 	if err != nil {
+		log.Error("unable to marshal ice payload")
 		return nil, err
 	}
 
@@ -217,37 +219,56 @@ func handleSfuIce(msg *sfu.PeerSignal_Ice) (*signal, error) {
 
 }
 
-func handleSfuEvent(msg *sfu.PeerSignal_Event) (*signal, error) {
+func handleSfuEvent(msg *sfu.PeerSignal_Event, log *slog.Logger) (*signal, error) {
 	var eventType string
 
 	switch msg.Event.Type {
 	case sfu.EventType_ROOM_ACTIVE:
 		eventType = "room_active"
+		log.Info("room active")
+
 	case sfu.EventType_ROOM_INACTIVE:
 		eventType = "room_inactive"
-	case sfu.EventType_ROOM_ENEDED:
+		log.Info("room inactive")
+
+	case sfu.EventType_ROOM_ENDED:
 		eventType = "room_ended"
+		log.Info("room ended")
+
 	case sfu.EventType_JOIN_EVENT:
 		eventType = "join_event"
+		log.Info("join event")
+
 	case sfu.EventType_LEAVE_EVENT:
 		eventType = "leave_event"
+		log.Info("leave event")
+
 	case sfu.EventType_AUDIO_ENABLED:
 		eventType = "audio_enabled"
+		log.Info("audio enabled")
+
 	case sfu.EventType_AUDIO_DISABLED:
 		eventType = "audio_disabled"
+		log.Info("audio disabled")
+
 	case sfu.EventType_VIDEO_ENABLED:
 		eventType = "video_enabled"
+		log.Info("video enabled")
+
 	case sfu.EventType_VIDEO_DISABLED:
 		eventType = "video_disabled"
+		log.Info("video disabled")
 	}
 
 	event := event{
-		PeerID: msg.Event.Peerid,
-		RoomID: msg.Event.Roomid,
+		Name:   msg.Event.Name,
+		PeerID: msg.Event.PeerID,
 		Type:   eventType,
 	}
+
 	raw, err := json.Marshal(event)
 	if err != nil {
+		log.Error("unable to marshal event payload")
 		return nil, err
 	}
 
@@ -269,7 +290,6 @@ const (
 
 func handleFirstMsg(conn *websocket.Conn, log *slog.Logger) (Intent, *sfu.PeerSignal, error) {
 	var msg signal
-
 	for {
 		err := conn.ReadJSON(&msg)
 		if err != nil {
@@ -288,7 +308,7 @@ func handleFirstMsg(conn *websocket.Conn, log *slog.Logger) (Intent, *sfu.PeerSi
 
 			switch act.Type {
 			case "start_room", "join":
-				first, err := handleClientAction(msg.Payload)
+				first, err := handleClientAction(msg.Payload, log)
 				if err != nil {
 					return IntentUnknown, nil, err
 				}

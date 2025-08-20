@@ -9,7 +9,7 @@ import PreviewVideo from '../components/preview';
 import type { Room } from "../types/room";
 import get_claims from '../services/security/getClaims';
 import { signal_conn } from '../services/lib/signal';
-import { pub_conn, waitUntilDualPcConnect } from '../services/lib/webrtc';
+import {pcConnect } from '../services/lib/webrtc';
 import { media } from '../services/lib/media';
 
 
@@ -24,15 +24,14 @@ export default function NewMeetingPage(){
         const claims = await get_claims();
         if (!claims) {toast.error("you are not authenticated");navigate("/");return;}
 
+        signal_conn.connect()
         if (!await signal_conn.waitUnillOpen()){toast.error("unable to connect to signaling server");setLoading(false);return;}
 
-        // send start meeting request
-        signal_conn.sendAction(claims, "start_room");
-        const stream = await media.getAV();
-        pub_conn.attachLocalStream(stream);
 
-        if(!await waitUntilDualPcConnect(signal_conn)){toast.error("unable to connect to sfu server");setLoading(false); return;};
-        navigate(`/rooms/${claims.roomID}/meeting`);
+        signal_conn.sendAction("start_room");
+        const stream = await media.getAV();
+        if(!await pcConnect(signal_conn, stream)){toast.error("unable to connect to sfu server");setLoading(false); return;};
+        navigate(`../rooms/${claims.roomID}/meeting`);
         setLoading(false);
     }
 

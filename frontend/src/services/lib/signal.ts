@@ -1,4 +1,3 @@
-import type { Claims } from "../../types/claims";
 import type {Signal, Sdp, Ice, PeerEvent, PcType, SdpType, ActionType, PeerAction} from "../../types/signal";
 import Denque from "denque"
 
@@ -85,12 +84,9 @@ export class SignalClient {
         this.send({type: "ice", payload})
     }
 
-    sendAction(claims: Claims, action: ActionType) {
+    sendAction(action: ActionType) {
         const payload: PeerAction = {
-            peerID: claims.ID,
-            roomID: claims.roomID,
             type: action,
-            role: claims.role,
         };
 
         this.send({type: "action", payload});

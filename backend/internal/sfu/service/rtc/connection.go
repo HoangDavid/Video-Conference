@@ -40,7 +40,7 @@ func NewPConn(sendQ chan *sfu.PeerSignal, log *slog.Logger, debounceInterval tim
 		return nil, err
 	}
 
-	return &PConn{
+	pconn := &PConn{
 		PConn: &domain.PConn{
 			PC:            pc,
 			AudioLevelURI: audioLevelURI,
@@ -51,7 +51,9 @@ func NewPConn(sendQ chan *sfu.PeerSignal, log *slog.Logger, debounceInterval tim
 				Interval: debounceInterval,
 			},
 		},
-	}, nil
+	}
+
+	return pconn, nil
 }
 
 func (c *PConn) GetPC() *webrtc.PeerConnection {
@@ -143,6 +145,7 @@ func (c *PConn) HandleOffer(sdp *sfu.PeerSignal_Sdp) error {
 	res := &sfu.PeerSignal{
 		Payload: &sfu.PeerSignal_Sdp{
 			Sdp: &sfu.Sdp{
+				Pc:   sdp.Sdp.Pc,
 				Type: sfu.SdpType_ANSWER,
 				Sdp:  c.PC.LocalDescription().SDP,
 			},
@@ -175,13 +178,14 @@ func (c *PConn) HandleAnswer(sdp *sfu.PeerSignal_Sdp) error {
 }
 
 // send ice to client
-func (c *PConn) HandleLocalIce(candidate *webrtc.ICECandidate) {
-	if c == nil {
+func (c *PConn) HandleLocalIce(candidate *webrtc.ICECandidate, pcType sfu.PcType) {
+	if candidate == nil {
 		return
 	}
 
 	can := candidate.ToJSON()
 	ice := &sfu.IceCandidate{
+		Pc:            pcType,
 		Candidate:     can.Candidate,
 		SdpMid:        *can.SDPMid,
 		SdpMlineIndex: uint32(*can.SDPMLineIndex),

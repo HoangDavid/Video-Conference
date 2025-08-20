@@ -22,6 +22,7 @@ func NewRoom(roomID string) domain.Room {
 	room := &RoomObj{
 		RoomObj: &domain.RoomObj{
 			ID:       roomID,
+			Live:     false,
 			Peers:    make(map[string]domain.Peer),
 			Detector: d,
 			Ctx:      rCtx,
@@ -30,7 +31,7 @@ func NewRoom(roomID string) domain.Room {
 		},
 	}
 
-	go room.forwardAudio()
+	// go room.forwardAudio()
 
 	// Add new room to hub
 	hub.Hub().AddRoom(roomID, room)
@@ -43,6 +44,18 @@ func (r *RoomObj) Close() {
 	r.Cancel()
 	close(r.JoinChan)
 	hub.Hub().RemoveRoom(r.ID)
+}
+
+func (r *RoomObj) MakeLive() {
+	r.Mu.Lock()
+	defer r.Mu.Unlock()
+	r.Live = true
+}
+
+func (r *RoomObj) IsLive() bool {
+	r.Mu.RLock()
+	defer r.Mu.RUnlock()
+	return r.Live
 }
 
 func (r *RoomObj) AddPeer(peerID string, peer domain.Peer) {
@@ -88,8 +101,9 @@ func (r *RoomObj) GetPeer(peerID string) domain.Peer {
 }
 
 func (r *RoomObj) BroadCast(peerID string, event *sfu.PeerSignal_Event) {
-	r.Mu.RLock()
-	defer r.Mu.RUnlock()
+
+	r.Mu.Lock()
+	defer r.Mu.Unlock()
 
 	for id, peer := range r.Peers {
 		if peerID == id {

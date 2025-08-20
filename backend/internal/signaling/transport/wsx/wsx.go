@@ -3,14 +3,17 @@ package wsx
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 
 	sfu "vidcall/api/proto"
+	"vidcall/internal/signaling/security"
 	"vidcall/pkg/logger"
 
 	"github.com/gorilla/websocket"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/metadata"
 )
 
 type signal struct {
@@ -33,15 +36,12 @@ type ice struct {
 }
 
 type action struct {
-	PeerID string `json:"peerID"`
-	RoomID string `json:"roomID"`
-	Type   string `json:"type"`
-	Role   string `json:"role"`
+	Type string `json:"type"`
 }
 
 type event struct {
+	Name   string `json:"name"`
 	PeerID string `json:"peerID"`
-	RoomID string `json:"roomID"`
 	Type   string `json:"type"`
 }
 
@@ -62,6 +62,16 @@ var upgrader = websocket.Upgrader{
 
 func HandleWS(w http.ResponseWriter, r *http.Request, sfuCLient sfu.SFUClient) {
 	ctx := r.Context()
+	claims := security.ClaimsFrom(ctx)
+
+	md := metadata.Pairs(
+		"name", claims.Name,
+		"peer-id", claims.PeerID,
+		"room-id", claims.RoomID,
+		"role", claims.Role,
+	)
+	ctxMD := metadata.NewOutgoingContext(ctx, md)
+
 	log := logger.GetLog(ctx).With("layer", "transport")
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -75,7 +85,7 @@ func HandleWS(w http.ResponseWriter, r *http.Request, sfuCLient sfu.SFUClient) {
 		return
 	}
 
-	stream, err := sfuCLient.Signal(ctx)
+	stream, err := sfuCLient.Signal(ctxMD)
 	if err != nil {
 		log.Error("unable to create stream to SFU")
 		return
@@ -87,12 +97,14 @@ func HandleWS(w http.ResponseWriter, r *http.Request, sfuCLient sfu.SFUClient) {
 	if err := stream.Send(first); err != nil {
 		log.Error("unable to send first signal")
 		return
+	} else {
+		log.Info("send first msg to sfu")
 	}
 
 	g, _ := errgroup.WithContext(ctx)
 
-	g.Go(func() error { return onListenClient(conn, stream) })
-	g.Go(func() error { return onListenSFU(conn, stream) })
+	g.Go(func() error { return onListenClient(conn, stream, log) })
+	g.Go(func() error { return onListenSFU(conn, stream, log) })
 
 	if err := g.Wait(); err != nil {
 		log.Error(fmt.Sprintf("websocket disconnected with error: %v", err))
@@ -102,10 +114,12 @@ func HandleWS(w http.ResponseWriter, r *http.Request, sfuCLient sfu.SFUClient) {
 
 	// on websocket disconnect
 	CloseOne(conn, websocket.CloseNormalClosure, "")
-
 }
 
-func onListenClient(conn *websocket.Conn, stream sfu.SFU_SignalClient) error {
+func onListenClient(conn *websocket.Conn, stream sfu.SFU_SignalClient, log *slog.Logger) error {
+
+	log = log.With("from", "client")
+
 	var msg signal
 	for {
 		err := conn.ReadJSON(&msg)
@@ -115,43 +129,57 @@ func onListenClient(conn *websocket.Conn, stream sfu.SFU_SignalClient) error {
 
 		switch msg.Type {
 		case "sdp":
-			sdp, err := handleClientSDP(msg.Payload)
+			sdp, err := handleClientSDP(msg.Payload, log)
 
 			if err != nil {
 				return err
 			}
 
 			if err := stream.Send(sdp); err != nil {
+				log.Error("unable to send sdp to sfu")
 				return err
 			}
 
+			log.Info("sent sdp to sfu")
+
 		case "ice":
-			ice, err := handleClientIce(msg.Payload)
+			ice, err := handleClientIce(msg.Payload, log)
 
 			if err != nil {
 				return err
 			}
 
 			if err := stream.Send(ice); err != nil {
+				log.Error("unable to send ice to sfu")
 				return err
 			}
 
+			log.Info("sent ice to sfu")
+
 		case "action":
-			action, err := handleClientAction(msg.Payload)
+
+			// TODO: add permisions
+			action, err := handleClientAction(msg.Payload, log)
 
 			if err != nil {
 				return err
 			}
 
 			if err := stream.Send(action); err != nil {
+				log.Error("unable to send action to sfu")
 				return err
 			}
+
+			log.Info("sent action to sfu")
 		}
 
 	}
 }
 
-func onListenSFU(conn *websocket.Conn, stream sfu.SFU_SignalClient) error {
+func onListenSFU(conn *websocket.Conn, stream sfu.SFU_SignalClient, log *slog.Logger) error {
+
+	log = log.With("from", "SFU")
+
 	for {
 		msg, err := stream.Recv()
 		if err != nil {
@@ -160,34 +188,43 @@ func onListenSFU(conn *websocket.Conn, stream sfu.SFU_SignalClient) error {
 
 		switch pl := msg.Payload.(type) {
 		case *sfu.PeerSignal_Sdp:
-			sdp, err := handleSfuSDP(pl)
+			sdp, err := handleSfuSDP(pl, log)
 			if err != nil {
 				return err
 			}
 
 			if err := conn.WriteJSON(sdp); err != nil {
+				log.Error("unable to send sdp to client")
 				return err
 			}
 
+			log.Info("sent sdp to client")
+
 		case *sfu.PeerSignal_Ice:
-			ice, err := handleSfuIce(pl)
+			ice, err := handleSfuIce(pl, log)
 			if err != nil {
 				return err
 			}
 
 			if err := conn.WriteJSON(ice); err != nil {
+				log.Error("unable to send ice to client")
 				return err
 			}
+
+			log.Info("send ice to client")
+
 		case *sfu.PeerSignal_Event:
-			event, err := handleSfuEvent(pl)
+			event, err := handleSfuEvent(pl, log)
 			if err != nil {
 				return err
 			}
 
 			if err := conn.WriteJSON(event); err != nil {
+				log.Error("unablet to send event to client")
 				return err
 			}
+
+			log.Info("send event to client")
 		}
 	}
-
 }

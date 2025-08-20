@@ -13,8 +13,9 @@ type Subscriber interface {
 	WireCallBacks()
 	Connect() error
 	Disconnect() error
+	SubscribeRoom(subcriberID string, room Room) error
 	SubscribeVideo(peer Peer) error
-	UnsubscribeVideo(peerID string) error
+	UnsubscribeVideo(peer Peer) error
 	SubcribeAudio(peer Peer)
 	EnqueueSdp(sdp *sfu.PeerSignal_Sdp)
 	EnqueueIce(sdp *sfu.PeerSignal_Ice)
@@ -27,13 +28,20 @@ type SubConn struct {
 	Cancel context.CancelFunc
 	Log    *slog.Logger
 
-	Direction  webrtc.RTPTransceiverInit
-	AudioOut   *webrtc.RTPTransceiver
-	IdleVideos []*webrtc.RTPTransceiver
-	Sub        *webrtc.DataChannel
-
-	ActiveVideos map[string]*webrtc.RTPTransceiver
-
+	Videos  *SubVideo
 	RecvSdp chan *sfu.PeerSignal_Sdp
 	RecvIce chan *sfu.PeerSignal_Ice
+}
+
+type SubVideo struct {
+	IDOrder    []string
+	IDToTracks map[string]*webrtc.TrackLocalStaticRTP
+
+	Slots       map[int]*Slot
+	OwnerToSlot map[string]int
+	SlotToOwner map[int]string
+}
+
+type Slot struct {
+	Tx *webrtc.RTPTransceiver
 }

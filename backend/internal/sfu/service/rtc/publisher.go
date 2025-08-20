@@ -8,14 +8,12 @@ import (
 	sfu "vidcall/api/proto"
 	"vidcall/internal/sfu/domain"
 
-	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v3"
 )
 
 type PubConn struct {
 	*domain.PubConn
 	wg sync.WaitGroup
-	ID string
 }
 
 // Create conncection for client to push media
@@ -30,7 +28,9 @@ func NewPublisher(ctx context.Context, sendQ chan *sfu.PeerSignal, log *slog.Log
 
 	p := &PubConn{
 		PubConn: &domain.PubConn{
+			Log:     log,
 			Conn:    conn,
+			AV:      &domain.PubAV{},
 			Ctx:     pubCtx,
 			Cancel:  pubCancel,
 			RecvSdp: make(chan *sfu.PeerSignal_Sdp),
@@ -38,7 +38,7 @@ func NewPublisher(ctx context.Context, sendQ chan *sfu.PeerSignal, log *slog.Log
 		},
 	}
 
-	// wait group for publisher audio and video tracks
+	// wait group for publisher audio and video tracks attachment
 	p.wg.Add(2)
 
 	return p, nil
@@ -46,17 +46,16 @@ func NewPublisher(ctx context.Context, sendQ chan *sfu.PeerSignal, log *slog.Log
 }
 
 // set up pc callbacks
-func (p *PubConn) WireCallBacks() {
+func (p *PubConn) WireCallBacks(peerID string) {
 	pc := p.Conn.GetPC()
 	pc.OnICECandidate(func(c *webrtc.ICECandidate) {
-		if c == nil {
-			return
-		}
-		p.Conn.HandleLocalIce(c)
+		p.Conn.HandleLocalIce(c, sfu.PcType_PUB)
 
 	})
-	pc.OnNegotiationNeeded(nil)
-	pc.OnTrack(p.handleOnTrack)
+	pc.OnTrack(func(remote *webrtc.TrackRemote, recv *webrtc.RTPReceiver) {
+		p.handleOnTrack(remote, recv)
+	})
+
 }
 
 // start ice/sdp exchange for pc
@@ -109,116 +108,88 @@ func (p *PubConn) Disconnect() error {
 	return nil
 }
 
-func (p *PubConn) GetLocalAudio() *webrtc.TrackLocalStaticRTP {
+func (p *PubConn) GetLocalAV() *domain.PubAV {
 	p.wg.Wait()
-	return p.LocalAudio
-}
-
-func (p *PubConn) GetLocalVideo() *webrtc.TrackLocalStaticRTP {
-	p.wg.Wait()
-	return p.LocalVideo
+	return p.AV
 }
 
 func (p *PubConn) EnqueueSdp(sdp *sfu.PeerSignal_Sdp) {
-	p.RecvSdp <- sdp
+	select {
+	case p.RecvSdp <- sdp:
+	default:
+	}
 }
 
 func (p *PubConn) EnqueueIce(ice *sfu.PeerSignal_Ice) {
-	p.RecvIce <- ice
+	select {
+	case p.RecvIce <- ice:
+	default:
+	}
 }
 
 func (p *PubConn) AttachDetector(id string, d domain.Detector) {
-	p.ID = id
 	p.Detector = d
 }
 
 // set up on track
-func (p *PubConn) handleOnTrack(remote *webrtc.TrackRemote, recv *webrtc.RTPReceiver) {
-
-	local, err := webrtc.NewTrackLocalStaticRTP(
-		remote.Codec().RTPCodecCapability,
-		remote.ID(),
-		remote.StreamID(),
-	)
-
-	if err != nil {
-		p.Log.Error("unable to create new video local track")
-		p.Cancel()
-		return
-	}
+func (p *PubConn) handleOnTrack(remote *webrtc.TrackRemote, _ *webrtc.RTPReceiver) {
 
 	switch remote.Kind() {
 
 	case webrtc.RTPCodecTypeVideo:
-		p.LocalVideo = local
+		p.AV.Video = remote
+		vCtx, vCancel := context.WithCancel(p.Ctx)
+		p.AV.VCtx = vCtx
+		p.AV.VCancel = vCancel
 		p.wg.Done()
 
-		go p.pumpVideo(remote)
+		p.wg.Done() //  REMOVE THIS: when move on to audio
 
 	case webrtc.RTPCodecTypeAudio:
-		p.LocalAudio = local
-		p.wg.Done()
+		// p.LocalAudio = local
+		// p.wg.Done()
 
-		var audioLevelExtID uint8
-		for _, ext := range recv.GetParameters().HeaderExtensions {
-			if ext.URI == p.Conn.GetAudioURI() {
-				audioLevelExtID = uint8(ext.ID)
-				break
-			}
-		}
+		// var audioLevelExtID uint8
+		// for _, ext := range recv.GetParameters().HeaderExtensions {
+		// 	if ext.URI == p.Conn.GetAudioURI() {
+		// 		audioLevelExtID = uint8(ext.ID)
+		// 		break
+		// 	}
+		// }
 
-		go p.pumpAudio(remote, audioLevelExtID)
+		// go p.pumpAudio(remote, audioLevelExtID)
 	}
 }
 
 // pump video to subcribers
-func (p *PubConn) pumpVideo(remote *webrtc.TrackRemote) {
-
+func (p *PubConn) PumpVideo(local *webrtc.TrackLocalStaticRTP, params webrtc.RTPSendParameters) {
+	remote := p.GetLocalAV().Video
 	for {
-		pkt, _, err := remote.ReadRTP()
-		if err != nil {
-			p.Log.Error("unable to read video RTP packet")
+		select {
+		case <-p.AV.VCtx.Done():
 			return
-		}
+		default:
+			pkt, _, err := remote.ReadRTP()
+			pkt.PayloadType = uint8(params.Codecs[0].PayloadType)
+			pkt.SSRC = uint32(params.Encodings[0].SSRC)
 
-		if err := p.LocalVideo.WriteRTP(pkt); err != nil {
-			p.Log.Error("unable to send video RTP packet")
-			return
+			if err != nil {
+				p.Log.Error("unable to read video RTP packet")
+				return
+			}
+
+			if err := local.WriteRTP(pkt); err != nil {
+				p.Log.Error("unable to send video RTP packet")
+				return
+			}
 		}
 
 	}
 }
 
-// pump audio to subcribers
-func (p *PubConn) pumpAudio(remote *webrtc.TrackRemote, extID uint8) {
-
-	for {
-		pkt, _, err := remote.ReadRTP()
-		if err != nil {
-			p.Log.Error("unable to read audio RTP packet")
-			return
-		}
-
-		// Sample audio to find active speaker
-		// TODO: need a better place to put this
-		if p.Detector != nil {
-			lvl := p.audioLevel(pkt, extID)
-			p.Detector.Sample(p.ID, lvl)
-		}
-
-		if err := p.LocalAudio.WriteRTP(pkt); err != nil {
-			p.Log.Error("unable to send audio RTP packet")
-			return
-		}
-
-	}
-}
-
-// get audio level from packet
-func (p *PubConn) audioLevel(pkt *rtp.Packet, extID uint8) int {
-	b := pkt.GetExtension(extID)
-	if len(b) == 0 {
-		return 127
-	}
-	return int(b[0] & 0x7F)
+func (p *PubConn) StopPumpVideo() {
+	p.AV.VCancel()
+	vCtx, vCancel := context.WithCancel(p.Ctx)
+	p.AV.VCtx = vCtx
+	p.AV.VCancel = vCancel
 }

@@ -7,6 +7,8 @@ import (
 )
 
 type Room interface {
+	MakeLive()
+	IsLive() bool
 	AddPeer(peerID string, peer Peer)
 	RemovePeer(peerID string) Peer
 	GetPeer(peerID string) Peer
@@ -17,6 +19,7 @@ type Room interface {
 
 type RoomObj struct {
 	Mu       sync.RWMutex
+	Live     bool
 	ID       string
 	Peers    map[string]Peer
 	Detector Detector

@@ -2,20 +2,24 @@ package service
 
 import (
 	"context"
+	"fmt"
+	"log/slog"
 	"time"
 
 	sfu "vidcall/api/proto"
 	"vidcall/internal/sfu/domain"
 	"vidcall/internal/sfu/service/rtc"
-	"vidcall/pkg/logger"
+
+	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/metadata"
 )
 
 type PeerObj struct {
 	*domain.PeerObj
 }
 
-func NewPeer(ctx context.Context, stream sfu.SFU_SignalServer, poolSize int) (domain.Peer, error) {
-	log := logger.GetLog(ctx).With("layer", "service")
+func NewPeer(ctx context.Context, stream sfu.SFU_SignalServer, poolSize int, log *slog.Logger) (domain.Peer, error) {
+	log = log.With("layer", "service")
 
 	// Create channel to send msg and events
 	sendQ := make(chan *sfu.PeerSignal, 64)
@@ -33,14 +37,43 @@ func NewPeer(ctx context.Context, stream sfu.SFU_SignalServer, poolSize int) (do
 		return nil, err
 	}
 
+	// peer metadata
+	md, _ := metadata.FromIncomingContext(ctx)
+
+	get_md := func(v []string) string {
+		if len(v) > 0 {
+			return v[0]
+		} else {
+			return ""
+		}
+	}
+
+	var r sfu.RoleType
+	mdRole := get_md(md.Get("role"))
+	if mdRole == "host" {
+		r = sfu.RoleType_ROLE_HOST
+	} else if mdRole == "guest" {
+		r = sfu.RoleType_ROLE_GUEST
+	} else if mdRole == "bot" {
+		r = sfu.RoleType_ROLE_BOT
+	}
+
+	peermd := &domain.PeerMD{
+		Name:   get_md(md.Get("name")),
+		PeerID: get_md(md.Get("peer-id")),
+		RoomID: get_md(md.Get("room-id")),
+		Role:   r,
+	}
+
 	// wire call backs
-	pub.WireCallBacks()
+	pub.WireCallBacks(peermd.PeerID)
 	sub.WireCallBacks()
 
 	pCtx, pCancel := context.WithCancel(ctx)
 
 	return &PeerObj{
 		PeerObj: &domain.PeerObj{
+			Metadata:   peermd,
 			Log:        log,
 			Ctx:        pCtx,
 			Cancel:     pCancel,
@@ -53,8 +86,8 @@ func NewPeer(ctx context.Context, stream sfu.SFU_SignalServer, poolSize int) (do
 	}, nil
 }
 
-func (p *PeerObj) GetID() string {
-	return p.ID
+func (p *PeerObj) GetMetaData() *domain.PeerMD {
+	return p.Metadata
 }
 
 func (p *PeerObj) Pub() domain.Publisher {
@@ -66,55 +99,69 @@ func (p *PeerObj) Sub() domain.Subscriber {
 }
 
 func (p *PeerObj) Connect() error {
+	g, _ := errgroup.WithContext(p.Ctx)
+
 	// start uplink/downlink peer connection
-	go p.Pub().Connect()
-	go p.Sub().Connect()
+	g.Go(func() error { return p.Publisher.Connect() })
+	g.Go(func() error { return p.Subscriber.Connect() })
 
 	// start send loop and on event loop
-	go p.sendCycle()
-	go p.eventCycle()
+	g.Go(func() error { return p.sendCycle() })
+	g.Go(func() error { return p.eventCycle() })
 
-	for {
-		select {
-		case <-p.Ctx.Done():
-			return nil
-		default:
-			msg, err := p.Stream.Recv()
-			if err != nil {
-				p.Log.Error("peer unable to recieve msg")
-				return err
+	// main loop
+	g.Go(func() error {
+		for {
+			select {
+			case <-p.Ctx.Done():
+				return nil
+			default:
+				msg, err := p.Stream.Recv()
+
+				if err != nil {
+					return err
+				}
+
+				switch pl := msg.Payload.(type) {
+				case *sfu.PeerSignal_Sdp:
+					pc := pl.Sdp.Pc
+
+					if pc == sfu.PcType_PUB {
+						p.Publisher.EnqueueSdp(pl)
+					}
+
+					if pc == sfu.PcType_SUB {
+						p.Subscriber.EnqueueSdp(pl)
+					}
+
+				case *sfu.PeerSignal_Ice:
+					pc := pl.Ice.Pc
+
+					if pc == sfu.PcType_PUB {
+						p.Publisher.EnqueueIce(pl)
+					}
+
+					if pc == sfu.PcType_SUB {
+						p.Subscriber.EnqueueIce(pl)
+					}
+
+				case *sfu.PeerSignal_Action:
+					err := p.handleActions(pl)
+					if err != nil {
+						return err
+					}
+				}
 			}
 
-			switch pl := msg.Payload.(type) {
-			case *sfu.PeerSignal_Sdp:
-				pc := pl.Sdp.Pc
-
-				if pc == sfu.PcType_PUB {
-					p.Publisher.EnqueueSdp(pl)
-				}
-
-				if pc == sfu.PcType_SUB {
-					p.Subscriber.EnqueueSdp(pl)
-				}
-
-			case *sfu.PeerSignal_Ice:
-				pc := pl.Ice.Pc
-
-				if pc == sfu.PcType_PUB {
-					p.Publisher.EnqueueIce(pl)
-				}
-
-				if pc == sfu.PcType_SUB {
-					p.Subscriber.EnqueueIce(pl)
-				}
-
-			case *sfu.PeerSignal_Action:
-				p.handleActions(pl)
-			}
 		}
+	})
 
+	err := g.Wait()
+	if err != nil {
+		return err
 	}
 
+	return nil
 }
 
 func (p *PeerObj) Disconnect() error {
@@ -131,6 +178,7 @@ func (p *PeerObj) Disconnect() error {
 	close(p.SendQ)
 	close(p.EventQ)
 
+	p.Log.Info("Peer disconnected!")
 	return nil
 }
 
@@ -159,6 +207,8 @@ func (p *PeerObj) sendCycle() error {
 			}
 
 			if err := p.Stream.Send(msg); err != nil {
+				errMsg := fmt.Sprintf("unable to send signal: %v", err)
+				p.Log.Error(errMsg)
 				return err
 			}
 		}
@@ -178,71 +228,4 @@ func (p *PeerObj) eventCycle() error {
 			p.handleEvents(msg)
 		}
 	}
-}
-
-func (p *PeerObj) handleActions(act *sfu.PeerSignal_Action) error {
-
-	actType := act.Action.Type
-	roomID := act.Action.Roomid
-
-	// TODO: attach role here when get human/bot peer
-	_ = act.Action.Role
-
-	if p.ID == "" {
-		p.ID = act.Action.Peerid
-	}
-
-	switch actType {
-	case sfu.ActionType_START_ROOM:
-		p.handleStartRoom(roomID)
-
-	case sfu.ActionType_JOIN:
-		p.handleJoinRoom(roomID)
-
-	case sfu.ActionType_LEAVE:
-		p.handleLeaveRoom(roomID)
-
-	case sfu.ActionType_END_ROOM:
-		p.handleEndRoom(roomID)
-
-	case sfu.ActionType_AUDIO_ON:
-	case sfu.ActionType_AUDIO_OFF:
-	case sfu.ActionType_VIDEO_ON:
-	case sfu.ActionType_VIDEO_OFF:
-	case sfu.ActionType_DUBBING_ON:
-	case sfu.ActionType_DUBBING_OFF:
-	}
-
-	return nil
-}
-
-func (p *PeerObj) handleEvents(evt *sfu.PeerSignal_Event) error {
-	evtType := evt.Event.Type
-
-	switch evtType {
-	case sfu.EventType_ROOM_ACTIVE:
-		p.handleRoomActiveEvent(evt)
-
-	case sfu.EventType_ROOM_INACTIVE:
-		p.handleRoomInactiveEvent(evt)
-
-	case sfu.EventType_JOIN_EVENT:
-		if err := p.handleJoinEvent(evt); err != nil {
-			return err
-		}
-
-	case sfu.EventType_LEAVE_EVENT:
-		if err := p.handleLeaveEvent(evt); err != nil {
-			return err
-		}
-
-	case sfu.EventType_ROOM_ENEDED:
-		p.handleRoomEndedEvent()
-
-	case sfu.EventType_AUDIO_ENABLED:
-	case sfu.EventType_AUDIO_DISABLED:
-	case sfu.EventType_VIDEO_ENABLED:
-	case sfu.EventType_VIDEO_DISABLED:
-	}
-	return nil
 }

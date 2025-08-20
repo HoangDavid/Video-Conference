@@ -4,6 +4,7 @@ import (
 	"fmt"
 	sfu "vidcall/api/proto"
 	"vidcall/internal/sfu/service"
+	"vidcall/pkg/logger"
 )
 
 type Server struct {
@@ -14,17 +15,23 @@ func (s *Server) Signal(stream sfu.SFU_SignalServer) error {
 
 	ctx := stream.Context()
 
-	fmt.Println("hi")
 	// Temoporary: max 4 people in a meeting, for demo
-	newPeer, err := service.NewPeer(ctx, stream, 3)
+	log := logger.GetLog(ctx)
+	newPeer, err := service.NewPeer(ctx, stream, 3, log)
 	if err != nil {
 		return nil
 	}
+	log.Info("new peer created")
 
 	// auto cut peer connections by manual/error
 	defer newPeer.Disconnect()
 
-	newPeer.Connect()
+	if err := newPeer.Connect(); err != nil {
+		errMsg := fmt.Sprint("Peer unable to connect: %w", err)
+		log.Error(errMsg)
+	}
+
+	log.Info("peer disconnected")
 
 	return nil
 

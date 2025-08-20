@@ -2,17 +2,22 @@ import { SignalClient } from "./signal";
 import type { Sdp, Ice } from "../../types/signal";
 
 export class RtcClient {
-    readonly pc: RTCPeerConnection;
-    readonly remoteStream = new MediaStream()
+    private pc!: RTCPeerConnection;
+    public remoteVideos: (MediaStream | null)[] = [null, null, null];
+
+
     AVattached: boolean = false;
+
 
     private pendingIce: RTCIceCandidateInit[] = []
 
     private _onIce?: (ice: RTCIceCandidate) => void;
-    private _onTrack?: (track: MediaStreamTrack) => void;
+    private _onTrack?: (track: MediaStreamTrack, stream?: MediaStream) => void;
     onConnectionStateChange?: (state: RTCPeerConnectionState) => void;
     
-    constructor(){
+
+    constructor() {}
+    connect(){
         this.pc =  new RTCPeerConnection({
             iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
         });
@@ -23,8 +28,41 @@ export class RtcClient {
         };
 
         this.pc.ontrack = (ev) => {
-            // TODO: figure this out
+            if (ev.track.kind !== "video") return;
+
+            // Build a fresh MediaStream for this specific track
+            const ms = new MediaStream([ev.track]);
+
+            // Put it in the first empty slot (or overwrite slot 0 if all filled)
+            let idx = this.remoteVideos.findIndex((s) => s === null);
+            if (idx === -1) idx = 0;
+
+            this.remoteVideos[idx] = ms;
+            console.log(`[ontrack] video track=${ev.track.id} -> slot ${idx}`);
+
+            // Clean up slot when this track ends
+            ev.track.onended = () => {
+                if (this.remoteVideos[idx]?.getVideoTracks()[0]?.id === ev.track.id) {
+                this.remoteVideos[idx] = null;
+                console.log(`[ontrack] video ended -> cleared slot ${idx}`);
+                }
+            };
         };
+
+        setInterval(async () => {
+            const stats = await this.pc.getStats();
+
+            stats.forEach(r => {
+                if (r.type === "inbound-rtp" && r.kind === "video") {
+                const trackStat = stats.get(r.trackId); // lookup track by trackId
+                const trackLabel = trackStat ? trackStat.label : "unknown";
+
+                console.log(
+                    `[recv] video track=${trackLabel} ssrc=${r.ssrc} packets=${r.packetsReceived} framesDecoded=${r.framesDecoded}`
+                );
+                }
+            });
+        }, 2000);
     };
 
     onIce(fn: (ice: RTCIceCandidate) => void) {this._onIce = fn};
@@ -42,7 +80,6 @@ export class RtcClient {
     async createOfferAndSetLocal(): Promise<string>{
         const offer = await this.pc.createOffer();
         await this.pc.setLocalDescription(offer);
-        console.log(this.pc.localDescription?.sdp)
         return this.pc.localDescription?.sdp ?? "";
     }
 
@@ -74,7 +111,7 @@ export class RtcClient {
             const onChange = () => {
                 const s = this.pc.connectionState;
                 if (s === "connected") { cleanup(this.pc); resolve(true); }
-                else if (s === "failed" || s === "disconnected" || s === "closed") { cleanup(this.pc); resolve(false); }
+                else if (s === "failed" || s === "disconnected" || s === "closed") { cleanup(this.pc); console.log("connection state: ", s); resolve(false); }
             };
 
             const t = setTimeout(() => { cleanup(this.pc); resolve(this.pc.connectionState === "connected"); }, timeoutMs);
@@ -95,12 +132,10 @@ export class RtcClient {
 
 }
 
-// Initialize two peer connection
-export const pub_conn = new RtcClient();
-export const sub_conn = new RtcClient();
 
-export function wireCallBacks(conn: SignalClient){
+export function wireCallBacks(pub_conn: RtcClient, sub_conn: RtcClient, conn: SignalClient){
     conn.onSdp((sdp: Sdp) => {
+        console.log("got sdp type ", sdp.type, sdp.pc)
         if (sdp.pc == "pub") {
             HandleRemoteSdp(sdp, pub_conn, conn);
         }else if (sdp.pc == "sub") {
@@ -126,20 +161,48 @@ export function wireCallBacks(conn: SignalClient){
     })
 }
 
+export const pub_conn = new RtcClient()
+export const sub_conn = new RtcClient()
+
+export async function pcConnect( conn: SignalClient, stream: MediaStream): Promise<boolean> {
+    pub_conn.connect()
+    sub_conn.connect()
+
+    pub_conn.attachLocalStream(stream)
+    wireCallBacks(pub_conn, sub_conn, conn)
+
+    const offer = await pub_conn.createOfferAndSetLocal();
+    conn.sendSdp("pub","offer", offer);
+
+
+    const conn1 =  await pub_conn.waitForPc()
+    const conn2 = await sub_conn.waitForPc()
+    console.log("pub", conn1,"sub", conn2)
+
+    if (!conn1|| !conn2) {
+        return false
+    }
+
+    return true
+
+}
+
 
 // wait until both pc connects
-export async function waitUntilDualPcConnect(conn: SignalClient): Promise<boolean>{
+export async function waitUntilDualPcConnect(): Promise<boolean>{
     if (!pub_conn.AVattached) {
         console.error("publisher av is not attached!");
         return false
     }
-    const offer = await pub_conn.createOfferAndSetLocal();
 
-    conn.sendSdp("pub","offer", offer);
-
-    if (!pub_conn.waitForPc() || !sub_conn.waitForPc()) {
+    const conn1 =  await pub_conn.waitForPc()
+    const conn2 = await sub_conn.waitForPc()
+    console.log("pub", conn1,"sub", conn2)
+    
+    if (!conn1|| !conn2) {
         return false
     }
+
     return true
 }
 
@@ -148,16 +211,20 @@ export async function waitUntilDualPcConnect(conn: SignalClient): Promise<boolea
 async function HandleRemoteSdp(sdp: Sdp, pc_conn: RtcClient, signal_conn: SignalClient) {
     if (sdp.type == "answer") {
         await  pc_conn.setRemoteAnswer(sdp.sdp);
+        console.log("set remote answer sdp for: ", sdp.pc, sdp.type)
+        
     }else if (sdp.type == "offer") {
         const answer = await pc_conn.answerRemoteOffer(sdp.sdp);
         if (!answer) {return}
         signal_conn.sendSdp(sdp.pc, "answer", answer)
+        console.log("send answer to: ", sdp.pc)
     }
 }
 
 
 // helper function: handle Ice from remote peer
 function HandleRemoteIce(ice: Ice, p_conn: RtcClient) {
+    console.log("got ice from, ", ice.pc)
     const ice_can: RTCIceCandidateInit = {
         candidate: ice.candidate,
         sdpMid: ice.sdpMid,

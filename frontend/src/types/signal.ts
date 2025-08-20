@@ -29,14 +29,11 @@ export interface Ice {
 }
 
 export interface PeerAction {
-    peerID: string
-    roomID: string
     type: ActionType
-    role: RoleType
 }
 
 export interface PeerEvent {
+    name: string
     peerID: string
-    roomID: string
     type: EventType
 }

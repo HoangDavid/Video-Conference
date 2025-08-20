@@ -12,7 +12,7 @@ import (
 type Connection interface {
 	GetPC() *webrtc.PeerConnection
 	GetAudioURI() string
-	HandleLocalIce(candidate *webrtc.ICECandidate)
+	HandleLocalIce(candidate *webrtc.ICECandidate, pc sfu.PcType)
 	HandleRemoteIce(candidate *sfu.PeerSignal_Ice) error
 	HandleOffer(sdp *sfu.PeerSignal_Sdp) error
 	HandleAnswer(sdp *sfu.PeerSignal_Sdp) error
