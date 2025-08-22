@@ -1,6 +1,7 @@
 package service
 
 import (
+	"fmt"
 	sfu "vidcall/api/proto"
 	"vidcall/internal/sfu/service/hub"
 	"vidcall/internal/sfu/service/room"
@@ -52,7 +53,7 @@ func (p *PeerObj) handleActions(act *sfu.PeerSignal_Action) error {
 		if err := p.Subscriber.SubscribeRoom(md.PeerID, r); err != nil {
 			return err
 		}
-
+		fmt.Println(md.PeerID, "subcribed to room")
 		// create event and broadcast
 		joinE := p.createEvent(md.RoomID, sfu.EventType_JOIN_EVENT)
 		r.BroadCast(md.PeerID, joinE)
@@ -132,9 +133,10 @@ func (p *PeerObj) handleEvents(evt *sfu.PeerSignal_Event) error {
 			}
 
 			if err := p.Subscriber.SubscribeVideo(peer); err != nil {
-
 				return err
 			}
+
+			fmt.Println(md.PeerID, "subcribed to ", peer.GetMetaData().PeerID)
 		}
 
 		p.EnqueueSend(&sfu.PeerSignal{Payload: evt})

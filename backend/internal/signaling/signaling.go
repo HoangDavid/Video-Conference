@@ -24,23 +24,21 @@ func Execute() {
 
 	mux := http.NewServeMux()
 
-	// Load TLS cert and key
-	cert := os.Getenv("TLS_CERT")
-	key := os.Getenv("TLS_KEY")
-	if cert == "" || key == "" {
-		log.Fatalf("TLS_CERT or TLS_KEY are not set")
-		return
-	}
-
 	// Fire up infra: MongoDB and Redis
 	infra.Init(os.Getenv("MONGODB_URI"), os.Getenv("DB_NAME"), 10)
 
 	// fire a gRPC connection between signaling and sfu
-	sfuConn, err := grpc.Dial("localhost"+os.Getenv("SFU_PORT"), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	sfu_host := os.Getenv("SFU_HOST")
+	if sfu_host == "" {
+		sfu_host = "localhost" + os.Getenv("SFU_PORT")
+	}
+
+	sfuConn, err := grpc.Dial(sfu_host, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatal(err)
 		return
 	}
+
 	sfuClient := sfu.NewSFUClient(sfuConn)
 
 	// create new room and auth
@@ -56,6 +54,8 @@ func Execute() {
 	}))
 
 	port := os.Getenv("SIGNALING_PORT")
+	log.Println("Signaling server starting at port " + port)
+
 	server := &http.Server{
 		Addr:    port,
 		Handler: logger.SlogMiddleware(mux), // Slog handle server logging
@@ -64,7 +64,15 @@ func Execute() {
 		},
 	}
 
-	log.Println("Signaling server starting at port " + port)
-	log.Fatal(server.ListenAndServeTLS(cert, key))
+	// Load TLS cert and key
+	cert := os.Getenv("TLS_CERT")
+	key := os.Getenv("TLS_KEY")
+
+	if cert == "" || key == "" {
+		log.Printf("TLS_CERT or TLS_KEY are not set. Serving HTTP...")
+		log.Fatal(server.ListenAndServe())
+	} else {
+		log.Fatal(server.ListenAndServeTLS(cert, key))
+	}
 
 }

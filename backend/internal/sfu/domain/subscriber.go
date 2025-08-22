@@ -43,5 +43,7 @@ type SubVideo struct {
 }
 
 type Slot struct {
-	Tx *webrtc.RTPTransceiver
+	Tx         *webrtc.RTPTransceiver
+	PumpCtx    context.Context
+	PumpCancel context.CancelFunc
 }

@@ -8,6 +8,7 @@ import (
 	sfu "vidcall/api/proto"
 	"vidcall/internal/sfu/domain"
 
+	"github.com/pion/rtcp"
 	"github.com/pion/webrtc/v3"
 )
 
@@ -138,58 +139,74 @@ func (p *PubConn) handleOnTrack(remote *webrtc.TrackRemote, _ *webrtc.RTPReceive
 
 	case webrtc.RTPCodecTypeVideo:
 		p.AV.Video = remote
-		vCtx, vCancel := context.WithCancel(p.Ctx)
-		p.AV.VCtx = vCtx
-		p.AV.VCancel = vCancel
 		p.wg.Done()
 
-		p.wg.Done() //  REMOVE THIS: when move on to audio
-
 	case webrtc.RTPCodecTypeAudio:
-		// p.LocalAudio = local
-		// p.wg.Done()
-
-		// var audioLevelExtID uint8
-		// for _, ext := range recv.GetParameters().HeaderExtensions {
-		// 	if ext.URI == p.Conn.GetAudioURI() {
-		// 		audioLevelExtID = uint8(ext.ID)
-		// 		break
-		// 	}
-		// }
-
-		// go p.pumpAudio(remote, audioLevelExtID)
+		p.AV.Audio = remote
+		p.wg.Done()
 	}
 }
 
 // pump video to subcribers
-func (p *PubConn) PumpVideo(local *webrtc.TrackLocalStaticRTP, params webrtc.RTPSendParameters) {
+func (p *PubConn) PumpVideo(ctx context.Context, local *webrtc.TrackLocalStaticRTP, tx *webrtc.RTPTransceiver) {
 	remote := p.GetLocalAV().Video
+
+	go p.checkRTCP(ctx, tx, remote.SSRC())
+
 	for {
 		select {
-		case <-p.AV.VCtx.Done():
+		case <-ctx.Done():
+			p.Log.Info("stop pumping video")
 			return
 		default:
-			pkt, _, err := remote.ReadRTP()
-			pkt.PayloadType = uint8(params.Codecs[0].PayloadType)
-			pkt.SSRC = uint32(params.Encodings[0].SSRC)
+		}
+		pkt, _, err := remote.ReadRTP()
 
-			if err != nil {
-				p.Log.Error("unable to read video RTP packet")
-				return
-			}
+		if err != nil {
+			p.Log.Error("unable to read video RTP packet")
+			return
+		}
 
-			if err := local.WriteRTP(pkt); err != nil {
-				p.Log.Error("unable to send video RTP packet")
-				return
+		if err := local.WriteRTP(pkt); err != nil {
+			p.Log.Error("unable to send video RTP packet")
+			return
+		}
+	}
+}
+
+func (p *PubConn) checkRTCP(ctx context.Context, tx *webrtc.RTPTransceiver, upSRRC webrtc.SSRC) {
+
+	var lastPLI time.Time
+	const minInt = 1000 * time.Millisecond
+
+	for {
+		select {
+		case <-ctx.Done():
+			p.Log.Info("stop RTCP checking")
+			return
+		default:
+		}
+
+		pkts, _, err := tx.Sender().ReadRTCP()
+
+		if err != nil {
+			p.Log.Error("unable to read read RTCP")
+			return
+		}
+
+		for _, pkt := range pkts {
+			if pli, ok := pkt.(*rtcp.PictureLossIndication); ok {
+				if time.Since(lastPLI) >= minInt {
+					lastPLI = time.Now()
+					pli.MediaSSRC = uint32(upSRRC)
+					if err := p.Conn.GetPC().WriteRTCP([]rtcp.Packet{pli}); err != nil {
+						p.Log.Error("Failed to write pli RTCP")
+					}
+
+					p.Log.Info("sent key frame")
+				}
 			}
 		}
 
 	}
-}
-
-func (p *PubConn) StopPumpVideo() {
-	p.AV.VCancel()
-	vCtx, vCancel := context.WithCancel(p.Ctx)
-	p.AV.VCtx = vCtx
-	p.AV.VCancel = vCancel
 }

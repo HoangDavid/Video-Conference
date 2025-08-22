@@ -4,7 +4,21 @@ export class MediaController {
 
     async getAV(): Promise<MediaStream> {
         if (!this.stream){
-            this.stream = await navigator.mediaDevices.getUserMedia({video: true, audio: true});
+            this.stream =await navigator.mediaDevices.getUserMedia({
+            video: {
+                width: { ideal: 320, max: 320 },
+                height: { ideal: 180, max: 180 },
+                frameRate: { ideal: 15, max: 30 },
+            },
+            audio: {
+                channelCount: 1,
+                sampleRate: 16000,
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true,
+            },
+            });
+
         }
 
         return this.stream;

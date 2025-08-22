@@ -2,7 +2,6 @@ package rtc
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"time"
 	sfu "vidcall/api/proto"
@@ -170,12 +169,10 @@ func (s *SubConn) SubscribeVideo(peer domain.Peer) error {
 		return nil
 	}
 
-	params := v.Slots[0].Tx.Sender().GetParameters()
-
 	local, err := webrtc.NewTrackLocalStaticRTP(
-		params.Codecs[0].RTPCodecCapability,
-		"track"+peerID,
-		peerID,
+		peer.Pub().GetLocalAV().Video.Codec().RTPCodecCapability,
+		"loop"+peerID,
+		"pion",
 	)
 
 	if err != nil {
@@ -196,8 +193,11 @@ func (s *SubConn) SubscribeVideo(peer domain.Peer) error {
 
 				slot := v.Slots[i]
 				slot.Tx.Sender().ReplaceTrack(local)
-				go peer.Pub().PumpVideo(local, params)
-				fmt.Println(" peer subcribed to ", peerID)
+
+				pumpCtx, pumpCancel := context.WithCancel(s.Ctx)
+				slot.PumpCtx = pumpCtx
+				slot.PumpCancel = pumpCancel
+				go peer.Pub().PumpVideo(pumpCtx, local, slot.Tx)
 				break
 
 			}
@@ -225,7 +225,8 @@ func (s *SubConn) UnsubscribeVideo(peer domain.Peer) error {
 
 		delete(v.OwnerToSlot, peerID)
 		delete(v.SlotToOwner, slotID)
-		peer.Pub().StopPumpVideo()
+		v.Slots[slotID].PumpCtx = nil
+		v.Slots[slotID].PumpCancel = nil
 	}
 
 	delete(v.IDToTracks, peerID)

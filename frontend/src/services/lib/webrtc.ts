@@ -3,7 +3,7 @@ import type { Sdp, Ice } from "../../types/signal";
 
 export class RtcClient {
     private pc!: RTCPeerConnection;
-    public remoteVideos: (MediaStream | null)[] = [null, null, null];
+    public remoteStream: MediaStream =  new MediaStream();
 
 
     AVattached: boolean = false;
@@ -28,41 +28,25 @@ export class RtcClient {
         };
 
         this.pc.ontrack = (ev) => {
-            if (ev.track.kind !== "video") return;
-
-            // Build a fresh MediaStream for this specific track
-            const ms = new MediaStream([ev.track]);
-
-            // Put it in the first empty slot (or overwrite slot 0 if all filled)
-            let idx = this.remoteVideos.findIndex((s) => s === null);
-            if (idx === -1) idx = 0;
-
-            this.remoteVideos[idx] = ms;
-            console.log(`[ontrack] video track=${ev.track.id} -> slot ${idx}`);
-
-            // Clean up slot when this track ends
-            ev.track.onended = () => {
-                if (this.remoteVideos[idx]?.getVideoTracks()[0]?.id === ev.track.id) {
-                this.remoteVideos[idx] = null;
-                console.log(`[ontrack] video ended -> cleared slot ${idx}`);
-                }
-            };
+            this.remoteStream?.addTrack(ev.track)
         };
 
         setInterval(async () => {
             const stats = await this.pc.getStats();
 
             stats.forEach(r => {
-                if (r.type === "inbound-rtp" && r.kind === "video") {
-                const trackStat = stats.get(r.trackId); // lookup track by trackId
-                const trackLabel = trackStat ? trackStat.label : "unknown";
-
-                console.log(
-                    `[recv] video track=${trackLabel} ssrc=${r.ssrc} packets=${r.packetsReceived} framesDecoded=${r.framesDecoded}`
-                );
+                if (r.type === "outbound-rtp" && r.kind === "video") {
+                    console.log(`[stats] video framesSent=${r.framesSent}`);
+                
                 }
-            });
-        }, 2000);
+                if (r.type === "inbound-rtp" && r.kind === "video") {
+                    console.log(`[recv]  video pli count  = ${r.pliCount}`);
+                    console.log(`[recv]  video framesDecoded  = ${r.framesDecoded}`);
+                    console.log(`[recv]  video packetsLost    = ${r.packetsLost}`);
+                }
+
+             });
+         }, 2000);
     };
 
     onIce(fn: (ice: RTCIceCandidate) => void) {this._onIce = fn};

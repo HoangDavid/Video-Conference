@@ -10,8 +10,7 @@ import (
 
 type Publisher interface {
 	WireCallBacks(peerID string)
-	PumpVideo(local *webrtc.TrackLocalStaticRTP, params webrtc.RTPSendParameters)
-	StopPumpVideo()
+	PumpVideo(ctx context.Context, local *webrtc.TrackLocalStaticRTP, tx *webrtc.RTPTransceiver)
 	Connect() error
 	Disconnect() error
 	AttachDetector(id string, d Detector)
@@ -33,11 +32,6 @@ type PubConn struct {
 }
 
 type PubAV struct {
-	Video   *webrtc.TrackRemote
-	VCtx    context.Context
-	VCancel context.CancelFunc
-
-	Audio   *webrtc.TrackRemote
-	ACtx    context.Context
-	ACancel context.CancelCauseFunc
+	Video *webrtc.TrackRemote
+	Audio *webrtc.TrackRemote
 }

@@ -7,7 +7,6 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/joho/godotenv v1.5.1
 	github.com/matoous/go-nanoid v1.5.1
-	github.com/pion/rtp v1.8.20
 	github.com/pion/webrtc/v3 v3.3.5
 	github.com/redis/go-redis/v9 v9.11.0
 	go.mongodb.org/mongo-driver v1.17.4
@@ -33,6 +32,7 @@ require (
 	github.com/pion/mdns v0.0.12 // indirect
 	github.com/pion/randutil v0.1.0 // indirect
 	github.com/pion/rtcp v1.2.15 // indirect
+	github.com/pion/rtp v1.8.20 // indirect
 	github.com/pion/sctp v1.8.39 // indirect
 	github.com/pion/sdp/v3 v3.0.14 // indirect
 	github.com/pion/srtp/v2 v2.0.20 // indirect
