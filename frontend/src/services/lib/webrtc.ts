@@ -4,6 +4,7 @@ import type { Sdp, Ice } from "../../types/signal";
 export class RtcClient {
     private pc!: RTCPeerConnection;
     public remoteStream: MediaStream =  new MediaStream();
+    public remoteStream1: MediaStream | null = null;
 
 
     AVattached: boolean = false;
@@ -28,7 +29,12 @@ export class RtcClient {
         };
 
         this.pc.ontrack = (ev) => {
-            this.remoteStream?.addTrack(ev.track)
+            if (this.remoteStream1 == null) {
+                this.remoteStream1 = new MediaStream();
+                this.remoteStream1.addTrack(ev.track)
+            }else{
+                this.remoteStream?.addTrack(ev.track)
+            }
         };
 
         setInterval(async () => {
