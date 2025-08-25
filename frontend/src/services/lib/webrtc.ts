@@ -4,7 +4,6 @@ import type { Sdp, Ice } from "../../types/signal";
 export class RtcClient {
     private pc!: RTCPeerConnection;
     public remoteStream: MediaStream =  new MediaStream();
-    public remoteStream1: MediaStream | null = null;
 
 
     AVattached: boolean = false;
@@ -29,30 +28,28 @@ export class RtcClient {
         };
 
         this.pc.ontrack = (ev) => {
-            if (this.remoteStream1 == null) {
-                this.remoteStream1 = new MediaStream();
-                this.remoteStream1.addTrack(ev.track)
-            }else{
-                this.remoteStream?.addTrack(ev.track)
-            }
+            console.log(ev.track.kind)
+            this.remoteStream?.addTrack(ev.track)
         };
 
-        setInterval(async () => {
-            const stats = await this.pc.getStats();
+    //     setInterval(async () => {
+    //         const stats = await this.pc.getStats();
 
-            stats.forEach(r => {
-                if (r.type === "outbound-rtp" && r.kind === "video") {
-                    console.log(`[stats] video framesSent=${r.framesSent}`);
+    //         stats.forEach(r => {
+    //             if (r.type === "outbound-rtp" && r.kind === "video") {
+    //                 console.log(`[stats] video framesSent=${r.framesSent}`);
                 
-                }
-                if (r.type === "inbound-rtp" && r.kind === "video") {
-                    console.log(`[recv]  video pli count  = ${r.pliCount}`);
-                    console.log(`[recv]  video framesDecoded  = ${r.framesDecoded}`);
-                    console.log(`[recv]  video packetsLost    = ${r.packetsLost}`);
-                }
+    //             }
 
-             });
-         }, 2000);
+
+    //             if (r.type === "inbound-rtp" && r.kind === "video") {
+    //                 console.log(`[recv]  video pli count  = ${r.pliCount}`);
+    //                 console.log(`[recv]  video framesDecoded  = ${r.framesDecoded}`);
+    //                 console.log(`[recv]  video packetsLost    = ${r.packetsLost}`);
+    //             }
+
+    //          });
+    //      }, 2000);
     };
 
     onIce(fn: (ice: RTCIceCandidate) => void) {this._onIce = fn};
@@ -60,7 +57,17 @@ export class RtcClient {
     // attach local medias
     attachLocalStream(stream: MediaStream) {
         if (!this.AVattached) {
-            stream.getTracks().forEach((t) => this.pc.addTrack(t, stream));
+            stream.getTracks().forEach(async (t) =>{ 
+                const sender = this.pc.addTrack(t, stream);
+                const params = sender.getParameters();
+
+                if (!params.encodings) {
+                    params.encodings = [{}];
+                }
+
+                params.encodings[0].maxBitrate = 300_000;
+                await sender.setParameters(params);
+            });
             this.AVattached = true;
         }
         

@@ -17,7 +17,7 @@ func (s *Server) Signal(stream sfu.SFU_SignalServer) error {
 
 	// Temoporary: max 4 people in a meeting, for demo
 	log := logger.GetLog(ctx)
-	newPeer, err := service.NewPeer(ctx, stream, 2, log)
+	newPeer, err := service.NewPeer(ctx, stream, 1, log)
 	if err != nil {
 		return nil
 	}

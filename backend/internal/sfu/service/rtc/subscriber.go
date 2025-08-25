@@ -23,8 +23,9 @@ func NewSubscriber(ctx context.Context, sendQ chan *sfu.PeerSignal, log *slog.Lo
 	}
 
 	v := &domain.SubVideo{
-		IDOrder:    []string{},
-		IDToTracks: make(map[string]*webrtc.TrackLocalStaticRTP),
+		IDOrder:         []string{},
+		IDToVideoTracks: make(map[string]*webrtc.TrackLocalStaticRTP),
+		IDToAudioTracks: make(map[string]*webrtc.TrackLocalStaticRTP),
 
 		Slots:       make(map[int]*domain.Slot),
 		OwnerToSlot: make(map[string]int),
@@ -34,15 +35,21 @@ func NewSubscriber(ctx context.Context, sendQ chan *sfu.PeerSignal, log *slog.Lo
 	direction := webrtc.RTPTransceiverInit{Direction: webrtc.RTPTransceiverDirectionSendonly}
 	// Preallocate video transceivers
 	for i := 0; i < poolSize; i++ {
-		tx, err := conn.GetPC().AddTransceiverFromKind(webrtc.RTPCodecTypeVideo, direction)
-
+		vtx, err := conn.GetPC().AddTransceiverFromKind(webrtc.RTPCodecTypeVideo, direction)
 		if err != nil {
-			log.Error("unable to add new transceiver")
+			log.Error("unable to add new video transceiver")
+			return nil, err
+		}
+
+		atx, err := conn.GetPC().AddTransceiverFromKind(webrtc.RTPCodecTypeAudio, direction)
+		if err != nil {
+			log.Error("unable to add new audio transceiver")
 			return nil, err
 		}
 
 		new_slot := &domain.Slot{
-			Tx: tx,
+			VideoTx: vtx,
+			AudioTx: atx,
 		}
 		v.Slots[i] = new_slot
 	}
@@ -146,7 +153,7 @@ func (s *SubConn) SubscribeRoom(subscriberID string, room domain.Room) error {
 			continue
 		}
 
-		err := s.SubscribeVideo(peer)
+		err := s.Subscribe(peer)
 		if err != nil {
 			s.Log.Error("unable to subscribe room")
 			return err
@@ -157,7 +164,7 @@ func (s *SubConn) SubscribeRoom(subscriberID string, room domain.Room) error {
 }
 
 // subscribe to remote peer video track
-func (s *SubConn) SubscribeVideo(peer domain.Peer) error {
+func (s *SubConn) Subscribe(peer domain.Peer) error {
 
 	s.Mu.Lock()
 	defer s.Mu.Unlock()
@@ -169,7 +176,7 @@ func (s *SubConn) SubscribeVideo(peer domain.Peer) error {
 		return nil
 	}
 
-	local, err := webrtc.NewTrackLocalStaticRTP(
+	vlocal, err := webrtc.NewTrackLocalStaticRTP(
 		peer.Pub().GetLocalAV().Video.Codec().RTPCodecCapability,
 		"loop"+peerID,
 		"pion",
@@ -180,8 +187,20 @@ func (s *SubConn) SubscribeVideo(peer domain.Peer) error {
 		return err
 	}
 
+	alocal, err := webrtc.NewTrackLocalStaticRTP(
+		peer.Pub().GetLocalAV().Audio.Codec().RTPCodecCapability,
+		"loop"+peerID,
+		"pion",
+	)
+
+	if err != nil {
+		s.Log.Error("unable to create local track")
+		return err
+	}
+
 	v.IDOrder = append(v.IDOrder, peerID)
-	v.IDToTracks[peerID] = local
+	v.IDToVideoTracks[peerID] = vlocal
+	v.IDToAudioTracks[peerID] = alocal
 
 	if len(v.OwnerToSlot) < len(v.Slots) {
 		for i := range len(v.Slots) {
@@ -192,12 +211,14 @@ func (s *SubConn) SubscribeVideo(peer domain.Peer) error {
 				v.OwnerToSlot[peerID] = i
 
 				slot := v.Slots[i]
-				slot.Tx.Sender().ReplaceTrack(local)
+				slot.VideoTx.Sender().ReplaceTrack(vlocal)
+				slot.AudioTx.Sender().ReplaceTrack(alocal)
 
 				pumpCtx, pumpCancel := context.WithCancel(s.Ctx)
 				slot.PumpCtx = pumpCtx
 				slot.PumpCancel = pumpCancel
-				go peer.Pub().PumpVideo(pumpCtx, local, slot.Tx)
+				go peer.Pub().PumpAudio(pumpCtx, alocal)
+				go peer.Pub().PumpVideo(pumpCtx, vlocal, slot.VideoTx)
 				break
 
 			}
@@ -208,7 +229,7 @@ func (s *SubConn) SubscribeVideo(peer domain.Peer) error {
 }
 
 // Unsubcribe to remote peers track
-func (s *SubConn) UnsubscribeVideo(peer domain.Peer) error {
+func (s *SubConn) Unsubscribe(peer domain.Peer) error {
 	s.Mu.Lock()
 	defer s.Mu.Unlock()
 
@@ -217,11 +238,18 @@ func (s *SubConn) UnsubscribeVideo(peer domain.Peer) error {
 
 	slotID, ok := v.OwnerToSlot[peerID]
 	if ok {
-		err := v.Slots[slotID].Tx.Sender().ReplaceTrack(nil)
-		if err != nil {
-			s.Log.Error("unable to detach track")
+		slot := v.Slots[slotID]
+		if err := slot.VideoTx.Sender().ReplaceTrack(nil); err != nil {
+			s.Log.Error("unable to detach video track")
 			return err
 		}
+
+		if err := slot.AudioTx.Sender().ReplaceTrack(nil); err != nil {
+			s.Log.Error("unable to detach audio track")
+			return err
+		}
+
+		slot.PumpCancel()
 
 		delete(v.OwnerToSlot, peerID)
 		delete(v.SlotToOwner, slotID)
@@ -229,7 +257,9 @@ func (s *SubConn) UnsubscribeVideo(peer domain.Peer) error {
 		v.Slots[slotID].PumpCancel = nil
 	}
 
-	delete(v.IDToTracks, peerID)
+	delete(v.IDToVideoTracks, peerID)
+	delete(v.IDToAudioTracks, peerID)
+
 	for i, id := range v.IDOrder {
 		if id == peerID {
 			v.IDOrder = append(v.IDOrder[:i], v.IDOrder[i+1:]...)
@@ -238,8 +268,4 @@ func (s *SubConn) UnsubscribeVideo(peer domain.Peer) error {
 	}
 
 	return nil
-}
-
-func (s *SubConn) SubcribeAudio(peer domain.Peer) {
-
 }

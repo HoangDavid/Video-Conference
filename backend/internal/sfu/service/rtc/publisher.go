@@ -128,15 +128,10 @@ func (p *PubConn) EnqueueIce(ice *sfu.PeerSignal_Ice) {
 	}
 }
 
-func (p *PubConn) AttachDetector(id string, d domain.Detector) {
-	p.Detector = d
-}
-
 // set up on track
 func (p *PubConn) handleOnTrack(remote *webrtc.TrackRemote, _ *webrtc.RTPReceiver) {
 
 	switch remote.Kind() {
-
 	case webrtc.RTPCodecTypeVideo:
 		p.AV.Video = remote
 		p.wg.Done()
@@ -144,6 +139,29 @@ func (p *PubConn) handleOnTrack(remote *webrtc.TrackRemote, _ *webrtc.RTPReceive
 	case webrtc.RTPCodecTypeAudio:
 		p.AV.Audio = remote
 		p.wg.Done()
+	}
+}
+
+func (p *PubConn) PumpAudio(ctx context.Context, local *webrtc.TrackLocalStaticRTP) {
+	remote := p.GetLocalAV().Audio
+	for {
+		select {
+		case <-ctx.Done():
+			p.Log.Info("stop pumping audio")
+			return
+		default:
+		}
+		pkt, _, err := remote.ReadRTP()
+
+		if err != nil {
+			p.Log.Error("unable to read audio RTP packet")
+			return
+		}
+
+		if err := local.WriteRTP(pkt); err != nil {
+			p.Log.Error("unable to send audio RTP packet")
+			return
+		}
 	}
 }
 

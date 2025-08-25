@@ -2,11 +2,9 @@ package room
 
 import (
 	"context"
-	"time"
 	sfu "vidcall/api/proto"
 	"vidcall/internal/sfu/domain"
 	"vidcall/internal/sfu/service/hub"
-	"vidcall/internal/sfu/service/rtc"
 )
 
 type RoomObj struct {
@@ -16,22 +14,17 @@ type RoomObj struct {
 func NewRoom(roomID string) domain.Room {
 
 	rCtx, rCancel := context.WithCancel(context.Background())
-	interval := time.Duration(200 * time.Millisecond)
-	d := rtc.NewDetector(rCtx, interval, 5)
 
 	room := &RoomObj{
 		RoomObj: &domain.RoomObj{
 			ID:       roomID,
 			Live:     false,
 			Peers:    make(map[string]domain.Peer),
-			Detector: d,
 			Ctx:      rCtx,
 			Cancel:   rCancel,
 			JoinChan: make(chan domain.Peer, 64),
 		},
 	}
-
-	// go room.forwardAudio()
 
 	// Add new room to hub
 	hub.Hub().AddRoom(roomID, room)
@@ -61,8 +54,6 @@ func (r *RoomObj) IsLive() bool {
 func (r *RoomObj) AddPeer(peerID string, peer domain.Peer) {
 	r.Mu.Lock()
 	defer r.Mu.Unlock()
-
-	peer.Pub().AttachDetector(peerID, r.Detector)
 	r.Peers[peerID] = peer
 
 	// trigger new peer join to subcriber audio
@@ -80,9 +71,6 @@ func (r *RoomObj) RemovePeer(peerID string) domain.Peer {
 	}
 
 	delete(r.Peers, peerID)
-
-	// trigger to find new active speaker
-	r.Detector.Remove(peerID)
 
 	return v
 }
@@ -126,44 +114,4 @@ func (r *RoomObj) ListPeers() map[string]domain.Peer {
 	peers := r.Peers
 
 	return peers
-}
-
-func (r *RoomObj) forwardAudio() {
-
-	var speaker domain.Peer
-	detCh := r.Detector.ActiveSpeaker()
-
-	for {
-		select {
-		case <-r.Ctx.Done():
-			return
-		case newPeer, ok := <-r.JoinChan:
-			if !ok {
-				return
-			}
-
-			if speaker != nil {
-				newPeer.Sub().SubcribeAudio(speaker)
-			}
-
-		case speakerID, ok := <-detCh:
-			if !ok {
-				return
-			}
-
-			r.Mu.RLock()
-			peers := r.Peers
-			r.Mu.RUnlock()
-
-			speaker = peers[speakerID]
-
-			for id, peer := range peers {
-				if id == speakerID {
-					continue
-				}
-
-				peer.Sub().SubcribeAudio(speaker)
-			}
-		}
-	}
 }

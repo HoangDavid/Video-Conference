@@ -22,7 +22,6 @@ type RoomObj struct {
 	Live     bool
 	ID       string
 	Peers    map[string]Peer
-	Detector Detector
 	Ctx      context.Context
 	Cancel   context.CancelFunc
 	JoinChan chan Peer

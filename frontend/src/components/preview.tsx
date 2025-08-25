@@ -18,7 +18,6 @@ export default function PreviewVideo(){
         (async() => {
             const m = await media.getAV();
             if (mediaRef.current){
-                console.log()
                 mediaRef.current.srcObject = m;
                 mediaRef.current.muted = true;
                 await mediaRef.current.play().catch((e) => {console.error(e)})

@@ -35,7 +35,7 @@ func (p *PeerObj) handleActions(act *sfu.PeerSignal_Action) error {
 		return nil
 
 	case sfu.ActionType_JOIN:
-
+		fmt.Println(md.PeerID, "joining")
 		if r.GetPeer(md.PeerID) == nil {
 			r.AddPeer(md.PeerID, p)
 		}
@@ -49,7 +49,6 @@ func (p *PeerObj) handleActions(act *sfu.PeerSignal_Action) error {
 			roomActiveE := p.createEvent(md.RoomID, sfu.EventType_ROOM_ACTIVE)
 			p.EnqueueSend(&sfu.PeerSignal{Payload: roomActiveE})
 		}
-
 		if err := p.Subscriber.SubscribeRoom(md.PeerID, r); err != nil {
 			return err
 		}
@@ -67,7 +66,7 @@ func (p *PeerObj) handleActions(act *sfu.PeerSignal_Action) error {
 		}
 
 		if r.IsLive() {
-			// TODO: unscribe the video
+			// TODO: unsubscribe the video
 
 			// create event and broadcast
 			leaveE := p.createEvent(md.RoomID, sfu.EventType_LEAVE_EVENT)
@@ -132,7 +131,7 @@ func (p *PeerObj) handleEvents(evt *sfu.PeerSignal_Event) error {
 				return nil
 			}
 
-			if err := p.Subscriber.SubscribeVideo(peer); err != nil {
+			if err := p.Subscriber.Subscribe(peer); err != nil {
 				return err
 			}
 
@@ -165,7 +164,7 @@ func (p *PeerObj) handleEvents(evt *sfu.PeerSignal_Event) error {
 }
 
 // helper funciton to create event
-func (p *PeerObj) createEvent(roomID string, e sfu.EventType) *sfu.PeerSignal_Event {
+func (p *PeerObj) createEvent(_ string, e sfu.EventType) *sfu.PeerSignal_Event {
 	return &sfu.PeerSignal_Event{
 		Event: &sfu.Event{
 			Name:   p.Metadata.Name,
