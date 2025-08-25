@@ -66,8 +66,6 @@ func (p *PeerObj) handleActions(act *sfu.PeerSignal_Action) error {
 		}
 
 		if r.IsLive() {
-			// TODO: unsubscribe the video
-
 			// create event and broadcast
 			leaveE := p.createEvent(md.RoomID, sfu.EventType_LEAVE_EVENT)
 			r.BroadCast(md.PeerID, leaveE)
@@ -94,9 +92,34 @@ func (p *PeerObj) handleActions(act *sfu.PeerSignal_Action) error {
 		}
 
 	case sfu.ActionType_AUDIO_ON:
+		if r.IsLive() {
+			audioOnE := p.createEvent(md.RoomID, sfu.EventType_AUDIO_ENABLED)
+			r.BroadCast(md.PeerID, audioOnE)
+
+			log.Info("Action: audio enabled")
+		}
 	case sfu.ActionType_AUDIO_OFF:
+		if r.IsLive() {
+			audioOffE := p.createEvent(md.RoomID, sfu.EventType_AUDIO_DISABLED)
+			r.BroadCast(md.PeerID, audioOffE)
+
+			log.Info("Action: audio disabled")
+		}
 	case sfu.ActionType_VIDEO_ON:
+		if r.IsLive() {
+			videoOnE := p.createEvent(md.RoomID, sfu.EventType_VIDEO_ENABLED)
+			r.BroadCast(md.PeerID, videoOnE)
+
+			log.Info("Action: video enabled")
+		}
+
 	case sfu.ActionType_VIDEO_OFF:
+		if r.IsLive() {
+			videoOffE := p.createEvent(md.RoomID, sfu.EventType_VIDEO_DISABLED)
+			r.BroadCast(md.PeerID, videoOffE)
+
+			log.Info("Action: video disabled")
+		}
 	case sfu.ActionType_DUBBING_ON:
 	case sfu.ActionType_DUBBING_OFF:
 	default:
@@ -142,10 +165,11 @@ func (p *PeerObj) handleEvents(evt *sfu.PeerSignal_Event) error {
 		log.Info("peer join event")
 
 	case sfu.EventType_LEAVE_EVENT:
+
 		if evt.Event.PeerID != md.PeerID {
-			// if err := p.Subscriber.UnsubscribeVideo(peerID); err != nil {
-			// 	return err
-			// }
+			if err := p.Subscriber.Unsubscribe(evt.Event.PeerID); err != nil {
+				return err
+			}
 		}
 
 		p.EnqueueSend(&sfu.PeerSignal{Payload: evt})
@@ -156,9 +180,18 @@ func (p *PeerObj) handleEvents(evt *sfu.PeerSignal_Event) error {
 		log.Info("host end room event")
 
 	case sfu.EventType_AUDIO_ENABLED:
+		p.EnqueueSend(&sfu.PeerSignal{Payload: evt})
+		log.Info("audio enabled event")
 	case sfu.EventType_AUDIO_DISABLED:
+		p.EnqueueSend(&sfu.PeerSignal{Payload: evt})
+		log.Info("audio disabled event")
 	case sfu.EventType_VIDEO_ENABLED:
+		p.EnqueueSend(&sfu.PeerSignal{Payload: evt})
+		log.Info("video enabled event")
 	case sfu.EventType_VIDEO_DISABLED:
+		p.EnqueueSend(&sfu.PeerSignal{Payload: evt})
+		log.Info("video disabled event")
+	default:
 	}
 	return nil
 }

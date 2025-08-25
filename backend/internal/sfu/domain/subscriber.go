@@ -15,7 +15,7 @@ type Subscriber interface {
 	Disconnect() error
 	SubscribeRoom(subcriberID string, room Room) error
 	Subscribe(peer Peer) error
-	Unsubscribe(peer Peer) error
+	Unsubscribe(peer string) error
 	EnqueueSdp(sdp *sfu.PeerSignal_Sdp)
 	EnqueueIce(sdp *sfu.PeerSignal_Ice)
 }

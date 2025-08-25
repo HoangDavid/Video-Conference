@@ -229,12 +229,11 @@ func (s *SubConn) Subscribe(peer domain.Peer) error {
 }
 
 // Unsubcribe to remote peers track
-func (s *SubConn) Unsubscribe(peer domain.Peer) error {
+func (s *SubConn) Unsubscribe(peerID string) error {
 	s.Mu.Lock()
 	defer s.Mu.Unlock()
 
 	v := s.Videos
-	peerID := peer.GetMetaData().PeerID
 
 	slotID, ok := v.OwnerToSlot[peerID]
 	if ok {
@@ -267,5 +266,13 @@ func (s *SubConn) Unsubscribe(peer domain.Peer) error {
 		}
 	}
 
+	return nil
+}
+
+func (s *SubConn) SwitchNext() error {
+	return nil
+}
+
+func (s *SubConn) SwitchPrev() error {
 	return nil
 }

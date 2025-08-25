@@ -12,7 +12,6 @@ export class RtcClient {
     private pendingIce: RTCIceCandidateInit[] = []
 
     private _onIce?: (ice: RTCIceCandidate) => void;
-    private _onTrack?: (track: MediaStreamTrack, stream?: MediaStream) => void;
     onConnectionStateChange?: (state: RTCPeerConnectionState) => void;
     
 

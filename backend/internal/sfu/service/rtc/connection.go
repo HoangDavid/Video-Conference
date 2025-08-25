@@ -18,17 +18,6 @@ type PConn struct {
 // create new peer connection
 func NewPConn(sendQ chan *sfu.PeerSignal, log *slog.Logger, debounceInterval time.Duration, withAudioLevel bool) (domain.Connection, error) {
 
-	m := &webrtc.MediaEngine{}
-	m.RegisterDefaultCodecs()
-	var audioLevelURI string
-	if withAudioLevel {
-		audioLevelURI = "urn:ietf:params:rtp-hdrext:ssrc-audio-level"
-		m.RegisterHeaderExtension(
-			webrtc.RTPHeaderExtensionCapability{URI: audioLevelURI},
-			webrtc.RTPCodecTypeAudio,
-		)
-	}
-
 	pc, err := webrtc.NewPeerConnection(webrtc.Configuration{
 		ICEServers: []webrtc.ICEServer{
 			{URLs: hub.Hub().GetStuns()},
@@ -42,14 +31,10 @@ func NewPConn(sendQ chan *sfu.PeerSignal, log *slog.Logger, debounceInterval tim
 
 	pconn := &PConn{
 		PConn: &domain.PConn{
-			PC:            pc,
-			AudioLevelURI: audioLevelURI,
-			Log:           log,
-			IceBuffers:    make(chan webrtc.ICECandidateInit, 64),
-			SendQ:         sendQ,
-			DebounceTimer: &domain.DebounceTimer{
-				Interval: debounceInterval,
-			},
+			PC:         pc,
+			Log:        log,
+			IceBuffers: make(chan webrtc.ICECandidateInit, 64),
+			SendQ:      sendQ,
 		},
 	}
 
@@ -58,10 +43,6 @@ func NewPConn(sendQ chan *sfu.PeerSignal, log *slog.Logger, debounceInterval tim
 
 func (c *PConn) GetPC() *webrtc.PeerConnection {
 	return c.PC
-}
-
-func (c *PConn) GetAudioURI() string {
-	return c.AudioLevelURI
 }
 
 // add ice from client
@@ -226,13 +207,6 @@ func (c *PConn) enqueueSend(msg *sfu.PeerSignal) {
 }
 
 func (c *PConn) Close() error {
-	c.DebounceTimer.Mu.Lock()
-	if c.DebounceTimer.Timer != nil {
-		c.DebounceTimer.Timer.Stop()
-		c.DebounceTimer.Timer = nil
-	}
-
-	c.DebounceTimer.Mu.Unlock()
 
 	close(c.IceBuffers)
 
