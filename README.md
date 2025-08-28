@@ -9,8 +9,8 @@ Designed to support multi-party meetings with efficient media routing and a scal
 ---
 
 ## Features
-- Multi-party video conferencing using **WebRTC** + **SFU**
-- Real-time **signaling** over WebSockets
+- Multi-party video conferencing using WebRTC and SFU
+- Real-time **signaling** over WebSockets and gRPC
 - **MongoDB** for persisting room and user state
 - **Cookie-based authentication**
 - Frontend built with **React**
