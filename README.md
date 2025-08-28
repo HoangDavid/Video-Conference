@@ -54,6 +54,7 @@ yarn dev
 mkcert -install
 mkcert -key-file dev.key -cert-file dev.crt
 ```
+Then update your key and cert url in your .env file in /backend for TLS configuration
 
 ### Multi devices testing (optional):
 To test on other devices, expose your local frontend with a free tunneling service:
