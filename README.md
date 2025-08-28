@@ -49,7 +49,13 @@ yarn install
 yarn dev
 ```
 
-### Multi devices testing:
+### Secured Backend (optional):
+```bash
+mkcert -install
+mkcert -key-file dev.key -cert-file dev.crt
+```
+
+### Multi devices testing (optional):
 To test on other devices, expose your local frontend with a free tunneling service:
 ```bash
 cloudflared tunnel --url [your local frontend url]
