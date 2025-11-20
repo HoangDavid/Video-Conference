@@ -1,6 +1,6 @@
 # Video Conference
 
-A work-in-progress **video conferencing system** built around an **SFU (Selective Forwarding Unit)** architecture.  
+A **video conferencing system** built around an **SFU (Selective Forwarding Unit)** architecture.  
 It uses **WebRTC** for real-time audio/video, **WebSockets** and **gRPC** for signaling, **MongoDB** for room and user state, and **cookie-based authentication** for secure session management.  
 Designed to support multi-party meetings with efficient media routing and a scalable backend.
 
